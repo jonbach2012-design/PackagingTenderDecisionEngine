@@ -1,46 +1,38 @@
-# Verify and Report
+# Regulatory Scoring Update
 
 ## Implementation Summary
 
-The initial PackagingTenderTool C# skeleton is present and runnable:
+PackagingTenderTool now includes initial regulatory scoring for Labels profile v1.
 
-- `PackagingTenderTool.sln`
-- `src/PackagingTenderTool.App` console host
-- `src/PackagingTenderTool.Core` domain/core class library
-- `tests/PackagingTenderTool.Core.Tests` focused domain tests
+The service layer supports:
 
-The core project includes the initial Labels profile v1 domain models:
+- line-level regulatory scoring in `LineEvaluationService`
+- supplier-level regulatory aggregation in `SupplierAggregationService`
+- total weighted score calculation through `ScoreBreakdownCalculator`
+- supplier classification through `SupplierClassificationService`
+- demo output from the console host with non-zero regulatory scores
 
-- `Tender`
-- `TenderSettings`
-- `PackagingProfile`
-- `LabelLineItem`
-- `Supplier`
-- `LineEvaluation`
-- `SupplierEvaluation`
-- `ScoreBreakdown`
-- `ManualReviewFlag`
+The first regulatory criteria are represented as tender-level expected values and nullable supplier line values:
 
-The model skeleton supports the current v1 constraints:
+- lower label weight through `MaximumLabelWeightGrams` and `LabelWeightGrams`
+- mono-material design
+- easy separation
+- reusable or recyclable material direction
+- traceability
 
-- Evaluation can start at line level and aggregate to supplier level.
-- Supplier evaluation can represent spend-weighted aggregation inputs.
-- Supplier grouping is represented by supplier name for v1.
-- Tender currency defaults to `EUR`.
-- Imported values can remain nullable where needed.
-- Manual review flags can be attached to line and supplier evaluations.
+Regulatory scoring stays simple and explicit. Each configured criterion contributes equally to the line-level regulatory score. Matching values increase the score, mismatches reduce it, and missing or invalid values create manual review flags without blocking evaluation or applying hard exclusion behavior.
 
-No final scoring thresholds, exclusion rules, advanced plausibility checks, Excel import, or full UI were implemented as part of this step.
+Supplier regulatory scores are aggregated using the existing spend-weighted supplier aggregation path. The total score continues to use the current weighting:
+
+- Commercial: 30%
+- Technical: 30%
+- Regulatory: 40%
+
+Classification uses the updated total score while preserving manual review behavior. A supplier with manual review flags is classified as `ManualReview`, even when a numeric total score can still be calculated.
 
 ## Verification
 
 Commands run from the repository root:
-
-```powershell
-dotnet restore PackagingTenderTool.sln
-```
-
-Result: passed. All projects were up-to-date for restore.
 
 ```powershell
 dotnet build PackagingTenderTool.sln
@@ -52,20 +44,28 @@ Result: passed. Build succeeded with 0 warnings and 0 errors.
 dotnet test PackagingTenderTool.sln
 ```
 
-Result: passed. 6 tests passed, 0 failed, 0 skipped.
+Result: passed. 41 tests passed, 0 failed, 0 skipped.
 
 ```powershell
 dotnet run --project src/PackagingTenderTool.App/PackagingTenderTool.App.csproj
 ```
 
-Result: passed. The console host ran successfully and printed:
+Result: passed. The console demo printed supplier scores including non-zero regulatory values:
 
 ```text
-Hello, World!
+Supplier: Acme Labels
+  Scores: Commercial=79.14, Technical=87.61, Regulatory=85.13, Total=84.08
+  Classification: Recommended
+
+Supplier: Beta Packaging
+  Scores: Commercial=76.09, Technical=33.33, Regulatory=80, Total=64.83
+  Classification: ManualReview
 ```
 
-## Issues and Challenges
+## Scope Notes
 
-No verification failures were encountered.
+No hard exclusion or knockout behavior was added.
 
-The console application is currently only a thin default runnable host and still prints `Hello, World!`. That is acceptable for the current skeleton scope, which focused on project structure and initial domain model contracts rather than UI behavior.
+No advanced PPWR/EPR rules, legal/regulatory engine behavior, or UI were implemented.
+
+Manual review remains non-blocking: flagged rows and suppliers can still receive numeric scores, but classification reflects the current manual review status.

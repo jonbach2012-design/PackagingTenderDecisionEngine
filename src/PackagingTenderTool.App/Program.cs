@@ -29,7 +29,12 @@ static TenderSettings CreateSampleTenderSettings()
         CurrencyCode = "EUR",
         ExpectedMaterial = "PP white",
         ExpectedWindingDirection = "Left",
-        ExpectedLabelSize = "80x120"
+        ExpectedLabelSize = "80x120",
+        MaximumLabelWeightGrams = 2m,
+        ExpectedMonoMaterial = true,
+        ExpectedEasySeparation = true,
+        ExpectedReusableOrRecyclableMaterial = true,
+        ExpectedTraceability = true
     };
 }
 
@@ -53,14 +58,19 @@ static MemoryStream CreateSampleLabelsWorkbook()
         "Material",
         "Reel diameter / pcs per roll",
         "No. of colors",
+        "Label weight (g)",
+        "Mono-material design",
+        "Easy separation",
+        "Reusable or recyclable material direction",
+        "Traceability",
         "Comment"
     };
     var rows = new object?[][]
     {
-        ["LBL-001", "Front label 80x120", "Acme Labels", "DK01", "100000", "1.250,00", "12,50", null, "1.250,00", "80x120", "Left", "PP white", "300mm", 4, "Imported sample row with comma decimals."],
-        ["LBL-002", "Back label 60x90", "Acme Labels", "DK01", "80000", "740.00", "9.25", null, "740.00", "80x120", "Left", "Paper", "300mm", 2, "Material mismatch with dot decimals."],
-        ["LBL-003", "Neck label 35x45", "Beta Packaging", "SE01", "60000", "690,00", "11,50", null, "690,00", "80x120", "Right", "PP clear", "250mm", 3, "Winding and material mismatch."],
-        ["LBL-004", "Promo label 50x50", "Beta Packaging", "SE01", "25000", null, "8.75", null, null, null, "Left", null, "200mm", 1, "Missing values demonstrate manual review."]
+        ["LBL-001", "Front label 80x120", "Acme Labels", "DK01", "100000", "1.250,00", "12,50", null, "1.250,00", "80x120", "Left", "PP white", "300mm", 4, "1,8", "yes", "yes", "yes", "yes", "Imported sample row with comma decimals."],
+        ["LBL-002", "Back label 60x90", "Acme Labels", "DK01", "80000", "740.00", "9.25", null, "740.00", "80x120", "Left", "Paper", "300mm", 2, "2.2", "no", "yes", "yes", "yes", "Material mismatch with dot decimals."],
+        ["LBL-003", "Neck label 35x45", "Beta Packaging", "SE01", "60000", "690,00", "11,50", null, "690,00", "80x120", "Right", "PP clear", "250mm", 3, "1,6", "yes", "no", "yes", "yes", "Winding and material mismatch."],
+        ["LBL-004", "Promo label 50x50", "Beta Packaging", "SE01", "25000", null, "8.75", null, null, null, "Left", null, "200mm", 1, null, null, "yes", null, "yes", "Missing values demonstrate manual review."]
     };
 
     for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)

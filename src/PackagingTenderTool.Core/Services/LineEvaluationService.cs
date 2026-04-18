@@ -36,6 +36,11 @@ public sealed class LineEvaluationService
             ScoreBreakdown = CreateScoreBreakdown(lineItem, comparisonLines, tenderSettings)
         };
 
+        foreach (var sourceManualReviewFlag in lineItem.SourceManualReviewFlags)
+        {
+            evaluation.ManualReviewFlags.Add(sourceManualReviewFlag);
+        }
+
         AddManualReviewFlags(lineItem, tenderSettings, evaluation.ManualReviewFlags);
 
         return evaluation;

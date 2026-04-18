@@ -42,5 +42,7 @@ public sealed class LabelLineItem
 
     public bool? HasTraceability { get; set; }
 
+    public List<ManualReviewFlag> SourceManualReviewFlags { get; set; } = [];
+
     public string? Comment { get; set; }
 }

@@ -1,118 +1,91 @@
 using System.Globalization;
+using ClosedXML.Excel;
+using PackagingTenderTool.Core.Import;
 using PackagingTenderTool.Core.Models;
 using PackagingTenderTool.Core.Services;
 
-var tender = CreateSampleTender();
+var tenderSettings = CreateSampleTenderSettings();
+using var importStream = CreateSampleLabelsWorkbook();
+var tender = new LabelsExcelImportService().ImportTender(
+    importStream,
+    "Labels Tender v1 Excel Import Sample",
+    tenderSettings);
+
 var lineEvaluationService = new LineEvaluationService();
 var supplierAggregationService = new SupplierAggregationService();
 
 var lineEvaluations = lineEvaluationService.EvaluateMany(tender.LabelLineItems, tender.Settings);
-
 var supplierEvaluations = supplierAggregationService.AggregateBySupplierName(lineEvaluations);
 
 PrintSummary(tender, supplierEvaluations);
 
-static Tender CreateSampleTender()
+static TenderSettings CreateSampleTenderSettings()
 {
-    return new Tender
+    return new TenderSettings
     {
-        Name = "Labels Tender v1 Sample",
-        Settings = new TenderSettings
-        {
-            PackagingProfile = PackagingProfile.Labels,
-            CurrencyCode = "EUR",
-            ExpectedMaterial = "PP white",
-            ExpectedWindingDirection = "Left",
-            ExpectedLabelSize = "80x120",
-            MaximumLabelWeightGrams = 2m,
-            ExpectedMonoMaterial = true,
-            ExpectedEasySeparation = true,
-            ExpectedReusableOrRecyclableMaterial = true,
-            ExpectedTraceability = true
-        },
-        LabelLineItems =
-        [
-            new LabelLineItem
-            {
-                ItemNo = "LBL-001",
-                ItemName = "Front label 80x120",
-                SupplierName = "Acme Labels",
-                Quantity = 100_000m,
-                Spend = 1_250m,
-                PricePerThousand = 12.50m,
-                LabelSize = "80x120",
-                WindingDirection = "Left",
-                Material = "PP white",
-                NumberOfColors = 4,
-                LabelWeightGrams = 1.8m,
-                IsMonoMaterial = true,
-                IsEasyToSeparate = true,
-                IsReusableOrRecyclableMaterial = true,
-                HasTraceability = true
-            },
-            new LabelLineItem
-            {
-                ItemNo = "LBL-002",
-                ItemName = "Back label 60x90",
-                SupplierName = "Acme Labels",
-                Quantity = 80_000m,
-                Spend = 740m,
-                PricePerThousand = 9.25m,
-                LabelSize = "80x120",
-                WindingDirection = "Left",
-                Material = "Paper",
-                NumberOfColors = 2,
-                LabelWeightGrams = 2.2m,
-                IsMonoMaterial = false,
-                IsEasyToSeparate = true,
-                IsReusableOrRecyclableMaterial = true,
-                HasTraceability = true
-            },
-            new LabelLineItem
-            {
-                ItemNo = "LBL-003",
-                ItemName = "Neck label 35x45",
-                SupplierName = "Beta Packaging",
-                Quantity = 60_000m,
-                Spend = 690m,
-                PricePerThousand = 11.50m,
-                LabelSize = "80x120",
-                WindingDirection = "Right",
-                Material = "PP clear",
-                NumberOfColors = 3,
-                LabelWeightGrams = 1.6m,
-                IsMonoMaterial = true,
-                IsEasyToSeparate = false,
-                IsReusableOrRecyclableMaterial = true,
-                HasTraceability = true
-            },
-            new LabelLineItem
-            {
-                ItemNo = "LBL-004",
-                ItemName = "Promo label 50x50",
-                SupplierName = "Beta Packaging",
-                Quantity = 25_000m,
-                Spend = null,
-                PricePerThousand = 8.75m,
-                LabelSize = null,
-                WindingDirection = "Left",
-                Material = null,
-                NumberOfColors = 1,
-                LabelWeightGrams = null,
-                IsMonoMaterial = null,
-                IsEasyToSeparate = true,
-                IsReusableOrRecyclableMaterial = null,
-                HasTraceability = true,
-                Comment = "Spend intentionally missing to demonstrate manual review."
-            }
-        ]
+        PackagingProfile = PackagingProfile.Labels,
+        CurrencyCode = "EUR",
+        ExpectedMaterial = "PP white",
+        ExpectedWindingDirection = "Left",
+        ExpectedLabelSize = "80x120"
     };
+}
+
+static MemoryStream CreateSampleLabelsWorkbook()
+{
+    using var workbook = new XLWorkbook();
+    var worksheet = workbook.Worksheets.Add("Labels");
+    var headers = new[]
+    {
+        "Item no",
+        "Item name",
+        "Supplier name",
+        "Site",
+        "Quantity",
+        "Spend",
+        "Price per 1,000",
+        "Price",
+        "Theoretical spend",
+        "Label size",
+        "Winding direction",
+        "Material",
+        "Reel diameter / pcs per roll",
+        "No. of colors",
+        "Comment"
+    };
+    var rows = new object?[][]
+    {
+        ["LBL-001", "Front label 80x120", "Acme Labels", "DK01", 100_000m, 1_250m, 12.50m, null, 1_250m, "80x120", "Left", "PP white", "300mm", 4, "Imported sample row."],
+        ["LBL-002", "Back label 60x90", "Acme Labels", "DK01", 80_000m, 740m, 9.25m, null, 740m, "80x120", "Left", "Paper", "300mm", 2, "Material mismatch for technical scoring."],
+        ["LBL-003", "Neck label 35x45", "Beta Packaging", "SE01", 60_000m, 690m, 11.50m, null, 690m, "80x120", "Right", "PP clear", "250mm", 3, "Winding and material mismatch."],
+        ["LBL-004", "Promo label 50x50", "Beta Packaging", "SE01", 25_000m, null, 8.75m, null, null, null, "Left", null, "200mm", 1, "Missing values demonstrate manual review."]
+    };
+
+    for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
+    {
+        worksheet.Cell(1, columnIndex + 1).Value = headers[columnIndex];
+    }
+
+    for (var rowIndex = 0; rowIndex < rows.Length; rowIndex++)
+    {
+        for (var columnIndex = 0; columnIndex < rows[rowIndex].Length; columnIndex++)
+        {
+            worksheet.Cell(rowIndex + 2, columnIndex + 1).Value = XLCellValue.FromObject(rows[rowIndex][columnIndex]);
+        }
+    }
+
+    var stream = new MemoryStream();
+    workbook.SaveAs(stream);
+    stream.Position = 0;
+
+    return stream;
 }
 
 static void PrintSummary(Tender tender, IReadOnlyCollection<SupplierEvaluation> supplierEvaluations)
 {
     Console.WriteLine("PackagingTenderTool evaluation sample");
     Console.WriteLine("-------------------------------------");
+    Console.WriteLine("Import source: generated Labels v1 Excel workbook");
     Console.WriteLine($"Tender: {tender.Name}");
     Console.WriteLine($"Profile: {tender.Settings.PackagingProfile}");
     Console.WriteLine($"Currency: {tender.Settings.CurrencyCode}");

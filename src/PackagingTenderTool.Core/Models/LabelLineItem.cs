@@ -32,5 +32,15 @@ public sealed class LabelLineItem
 
     public int? NumberOfColors { get; set; }
 
+    public decimal? LabelWeightGrams { get; set; }
+
+    public bool? IsMonoMaterial { get; set; }
+
+    public bool? IsEasyToSeparate { get; set; }
+
+    public bool? IsReusableOrRecyclableMaterial { get; set; }
+
+    public bool? HasTraceability { get; set; }
+
     public string? Comment { get; set; }
 }

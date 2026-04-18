@@ -23,7 +23,12 @@ static Tender CreateSampleTender()
             CurrencyCode = "EUR",
             ExpectedMaterial = "PP white",
             ExpectedWindingDirection = "Left",
-            ExpectedLabelSize = "80x120"
+            ExpectedLabelSize = "80x120",
+            MaximumLabelWeightGrams = 2m,
+            ExpectedMonoMaterial = true,
+            ExpectedEasySeparation = true,
+            ExpectedReusableOrRecyclableMaterial = true,
+            ExpectedTraceability = true
         },
         LabelLineItems =
         [
@@ -38,7 +43,12 @@ static Tender CreateSampleTender()
                 LabelSize = "80x120",
                 WindingDirection = "Left",
                 Material = "PP white",
-                NumberOfColors = 4
+                NumberOfColors = 4,
+                LabelWeightGrams = 1.8m,
+                IsMonoMaterial = true,
+                IsEasyToSeparate = true,
+                IsReusableOrRecyclableMaterial = true,
+                HasTraceability = true
             },
             new LabelLineItem
             {
@@ -51,7 +61,12 @@ static Tender CreateSampleTender()
                 LabelSize = "80x120",
                 WindingDirection = "Left",
                 Material = "Paper",
-                NumberOfColors = 2
+                NumberOfColors = 2,
+                LabelWeightGrams = 2.2m,
+                IsMonoMaterial = false,
+                IsEasyToSeparate = true,
+                IsReusableOrRecyclableMaterial = true,
+                HasTraceability = true
             },
             new LabelLineItem
             {
@@ -64,7 +79,12 @@ static Tender CreateSampleTender()
                 LabelSize = "80x120",
                 WindingDirection = "Right",
                 Material = "PP clear",
-                NumberOfColors = 3
+                NumberOfColors = 3,
+                LabelWeightGrams = 1.6m,
+                IsMonoMaterial = true,
+                IsEasyToSeparate = false,
+                IsReusableOrRecyclableMaterial = true,
+                HasTraceability = true
             },
             new LabelLineItem
             {
@@ -78,6 +98,11 @@ static Tender CreateSampleTender()
                 WindingDirection = "Left",
                 Material = null,
                 NumberOfColors = 1,
+                LabelWeightGrams = null,
+                IsMonoMaterial = null,
+                IsEasyToSeparate = true,
+                IsReusableOrRecyclableMaterial = null,
+                HasTraceability = true,
                 Comment = "Spend intentionally missing to demonstrate manual review."
             }
         ]

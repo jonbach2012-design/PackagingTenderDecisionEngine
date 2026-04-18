@@ -425,4 +425,152 @@ public sealed class EvaluationServiceTests
         Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Regulatory);
         Assert.Equal(41.25m, supplierEvaluation.ScoreBreakdown.Total);
     }
+
+    [Fact]
+    public void LineEvaluationServiceScoresRegulatoryExactMatches()
+    {
+        var tenderSettings = CreateRegulatoryTenderSettings();
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            LabelWeightGrams = 1.5m,
+            IsMonoMaterial = true,
+            IsEasyToSeparate = true,
+            IsReusableOrRecyclableMaterial = true,
+            HasTraceability = true
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.Equal(100m, evaluation.ScoreBreakdown.Regulatory);
+        Assert.False(evaluation.RequiresManualReview);
+        Assert.Equal(70m, evaluation.ScoreBreakdown.Total);
+    }
+
+    [Fact]
+    public void LineEvaluationServiceReducesRegulatoryScoreForMismatches()
+    {
+        var tenderSettings = CreateRegulatoryTenderSettings();
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            LabelWeightGrams = 2.5m,
+            IsMonoMaterial = false,
+            IsEasyToSeparate = true,
+            IsReusableOrRecyclableMaterial = false,
+            HasTraceability = true
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.Equal(40m, evaluation.ScoreBreakdown.Regulatory);
+        Assert.False(evaluation.RequiresManualReview);
+        Assert.Equal(46m, evaluation.ScoreBreakdown.Total);
+    }
+
+    [Fact]
+    public void LineEvaluationServiceFlagsMissingRegulatoryValuesForManualReview()
+    {
+        var tenderSettings = CreateRegulatoryTenderSettings();
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            LabelWeightGrams = null,
+            IsMonoMaterial = true,
+            IsEasyToSeparate = null,
+            IsReusableOrRecyclableMaterial = null,
+            HasTraceability = true
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.True(evaluation.RequiresManualReview);
+        Assert.Equal(40m, evaluation.ScoreBreakdown.Regulatory);
+        Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.LabelWeightGrams));
+        Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.IsEasyToSeparate));
+        Assert.Contains(evaluation.ManualReviewFlags, flag => flag.FieldName == nameof(LabelLineItem.IsReusableOrRecyclableMaterial));
+    }
+
+    [Fact]
+    public void LineEvaluationServiceFlagsInvalidRegulatoryWeightForManualReview()
+    {
+        var tenderSettings = CreateRegulatoryTenderSettings();
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            LabelWeightGrams = -1m,
+            IsMonoMaterial = true,
+            IsEasyToSeparate = true,
+            IsReusableOrRecyclableMaterial = true,
+            HasTraceability = true
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.True(evaluation.RequiresManualReview);
+        Assert.Equal(80m, evaluation.ScoreBreakdown.Regulatory);
+        Assert.Contains(evaluation.ManualReviewFlags, flag =>
+            flag.FieldName == nameof(LabelLineItem.LabelWeightGrams)
+            && flag.Severity == ManualReviewSeverity.Error);
+    }
+
+    [Fact]
+    public void SupplierAggregationServiceAggregatesRegulatoryScoreBySpend()
+    {
+        var tenderSettings = CreateRegulatoryTenderSettings();
+        var lineItems = new[]
+        {
+            new LabelLineItem
+            {
+                SupplierName = "Acme Labels",
+                Spend = 25m,
+                PricePerThousand = 10m,
+                LabelWeightGrams = 1.5m,
+                IsMonoMaterial = true,
+                IsEasyToSeparate = true,
+                IsReusableOrRecyclableMaterial = true,
+                HasTraceability = true
+            },
+            new LabelLineItem
+            {
+                SupplierName = "Acme Labels",
+                Spend = 75m,
+                PricePerThousand = 20m,
+                LabelWeightGrams = 2.5m,
+                IsMonoMaterial = false,
+                IsEasyToSeparate = true,
+                IsReusableOrRecyclableMaterial = false,
+                HasTraceability = true
+            }
+        };
+        var lineEvaluations = new LineEvaluationService().EvaluateMany(lineItems, tenderSettings);
+
+        var supplierEvaluation = new SupplierAggregationService()
+            .AggregateBySupplierName(lineEvaluations)
+            .Single();
+
+        Assert.Equal(55m, supplierEvaluation.ScoreBreakdown.Regulatory);
+        Assert.Equal(62.5m, supplierEvaluation.ScoreBreakdown.Commercial);
+        Assert.Equal(40.75m, supplierEvaluation.ScoreBreakdown.Total);
+    }
+
+    private static TenderSettings CreateRegulatoryTenderSettings()
+    {
+        return new TenderSettings
+        {
+            MaximumLabelWeightGrams = 2m,
+            ExpectedMonoMaterial = true,
+            ExpectedEasySeparation = true,
+            ExpectedReusableOrRecyclableMaterial = true,
+            ExpectedTraceability = true
+        };
+    }
 }

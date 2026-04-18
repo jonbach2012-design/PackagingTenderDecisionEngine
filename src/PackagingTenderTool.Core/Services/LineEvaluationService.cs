@@ -48,12 +48,13 @@ public sealed class LineEvaluationService
     {
         var commercialScore = CalculateCommercialScore(lineItem, comparisonLines);
         var technicalScore = CalculateTechnicalScore(lineItem, tenderSettings);
+        var regulatoryScore = CalculateRegulatoryScore(lineItem, tenderSettings);
 
         var scoreBreakdown = new ScoreBreakdown
         {
             Commercial = commercialScore,
             Technical = technicalScore,
-            Regulatory = 0m
+            Regulatory = regulatoryScore
         };
 
         scoreBreakdown.Total = ScoreBreakdownCalculator.CalculateTotal(scoreBreakdown);
@@ -130,6 +131,75 @@ public sealed class LineEvaluationService
             string.Equals(field.Expected, field.Actual, StringComparison.OrdinalIgnoreCase));
 
         return decimal.Round(matches / (decimal)expectedFields.Count * 100m, 2);
+    }
+
+    private static decimal CalculateRegulatoryScore(
+        LabelLineItem lineItem,
+        TenderSettings? tenderSettings)
+    {
+        if (tenderSettings is null)
+        {
+            return 0m;
+        }
+
+        decimal configuredCriteria = 0m;
+        decimal matchingCriteria = 0m;
+
+        if (tenderSettings.MaximumLabelWeightGrams is not null)
+        {
+            configuredCriteria++;
+            if (lineItem.LabelWeightGrams is >= 0m
+                && lineItem.LabelWeightGrams <= tenderSettings.MaximumLabelWeightGrams)
+            {
+                matchingCriteria++;
+            }
+        }
+
+        AddBooleanRegulatoryScore(
+            tenderSettings.ExpectedMonoMaterial,
+            lineItem.IsMonoMaterial,
+            ref configuredCriteria,
+            ref matchingCriteria);
+        AddBooleanRegulatoryScore(
+            tenderSettings.ExpectedEasySeparation,
+            lineItem.IsEasyToSeparate,
+            ref configuredCriteria,
+            ref matchingCriteria);
+        AddBooleanRegulatoryScore(
+            tenderSettings.ExpectedReusableOrRecyclableMaterial,
+            lineItem.IsReusableOrRecyclableMaterial,
+            ref configuredCriteria,
+            ref matchingCriteria);
+        AddBooleanRegulatoryScore(
+            tenderSettings.ExpectedTraceability,
+            lineItem.HasTraceability,
+            ref configuredCriteria,
+            ref matchingCriteria);
+
+        if (configuredCriteria == 0m)
+        {
+            return 0m;
+        }
+
+        return decimal.Round(matchingCriteria / configuredCriteria * 100m, 2);
+    }
+
+    private static void AddBooleanRegulatoryScore(
+        bool? expectedValue,
+        bool? actualValue,
+        ref decimal configuredCriteria,
+        ref decimal matchingCriteria)
+    {
+        if (expectedValue is null)
+        {
+            return;
+        }
+
+        configuredCriteria++;
+        if (actualValue == expectedValue)
+        {
+            matchingCriteria++;
+        }
     }
 
     private static void AddManualReviewFlags(
@@ -248,6 +318,8 @@ public sealed class LineEvaluationService
             nameof(LabelLineItem.LabelSize),
             lineItem.LabelSize,
             tenderSettings?.ExpectedLabelSize);
+
+        AddRegulatoryManualReviewFlags(lineItem, tenderSettings, manualReviewFlags);
     }
 
     private static void AddMissingTechnicalReferenceFlag(
@@ -266,6 +338,78 @@ public sealed class LineEvaluationService
             FieldName = fieldName,
             SourceValue = actualValue,
             Reason = $"A value is missing for technical comparison against expected {fieldName}.",
+            Severity = ManualReviewSeverity.Warning
+        });
+    }
+
+    private static void AddRegulatoryManualReviewFlags(
+        LabelLineItem lineItem,
+        TenderSettings? tenderSettings,
+        ICollection<ManualReviewFlag> manualReviewFlags)
+    {
+        if (tenderSettings is null)
+        {
+            return;
+        }
+
+        if (lineItem.LabelWeightGrams < 0m)
+        {
+            manualReviewFlags.Add(new ManualReviewFlag
+            {
+                FieldName = nameof(LabelLineItem.LabelWeightGrams),
+                SourceValue = lineItem.LabelWeightGrams.Value.ToString("G"),
+                Reason = "Label weight cannot be negative.",
+                Severity = ManualReviewSeverity.Error
+            });
+        }
+        else if (tenderSettings.MaximumLabelWeightGrams is not null
+            && lineItem.LabelWeightGrams is null)
+        {
+            manualReviewFlags.Add(new ManualReviewFlag
+            {
+                FieldName = nameof(LabelLineItem.LabelWeightGrams),
+                Reason = "Label weight is missing for regulatory comparison.",
+                Severity = ManualReviewSeverity.Warning
+            });
+        }
+
+        AddMissingRegulatoryFlag(
+            manualReviewFlags,
+            nameof(LabelLineItem.IsMonoMaterial),
+            lineItem.IsMonoMaterial,
+            tenderSettings.ExpectedMonoMaterial);
+        AddMissingRegulatoryFlag(
+            manualReviewFlags,
+            nameof(LabelLineItem.IsEasyToSeparate),
+            lineItem.IsEasyToSeparate,
+            tenderSettings.ExpectedEasySeparation);
+        AddMissingRegulatoryFlag(
+            manualReviewFlags,
+            nameof(LabelLineItem.IsReusableOrRecyclableMaterial),
+            lineItem.IsReusableOrRecyclableMaterial,
+            tenderSettings.ExpectedReusableOrRecyclableMaterial);
+        AddMissingRegulatoryFlag(
+            manualReviewFlags,
+            nameof(LabelLineItem.HasTraceability),
+            lineItem.HasTraceability,
+            tenderSettings.ExpectedTraceability);
+    }
+
+    private static void AddMissingRegulatoryFlag(
+        ICollection<ManualReviewFlag> manualReviewFlags,
+        string fieldName,
+        bool? actualValue,
+        bool? expectedValue)
+    {
+        if (expectedValue is null || actualValue is not null)
+        {
+            return;
+        }
+
+        manualReviewFlags.Add(new ManualReviewFlag
+        {
+            FieldName = fieldName,
+            Reason = $"A value is missing for regulatory comparison against expected {fieldName}.",
             Severity = ManualReviewSeverity.Warning
         });
     }

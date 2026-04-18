@@ -25,6 +25,12 @@ public sealed class LabelsExcelImportService
             [nameof(LabelLineItem.ReelDiameterOrPcsPerRoll)] =
                 ["Reel diameter / pcs per roll", "Reel diameter/pcs per roll", "Reel diameter", "Pcs per roll"],
             [nameof(LabelLineItem.NumberOfColors)] = ["No. of colors", "No of colors", "Number of colors"],
+            [nameof(LabelLineItem.LabelWeightGrams)] = ["Label weight", "Label weight grams", "Label weight (g)"],
+            [nameof(LabelLineItem.IsMonoMaterial)] = ["Mono-material design", "Mono material", "Is mono material"],
+            [nameof(LabelLineItem.IsEasyToSeparate)] = ["Easy separation", "Easy to separate", "Is easy to separate"],
+            [nameof(LabelLineItem.IsReusableOrRecyclableMaterial)] =
+                ["Reusable or recyclable material direction", "Reusable or recyclable", "Recyclable material"],
+            [nameof(LabelLineItem.HasTraceability)] = ["Traceability", "Has traceability"],
             [nameof(LabelLineItem.Comment)] = ["Comment", "Comments"]
         };
 
@@ -154,6 +160,36 @@ public sealed class LabelsExcelImportService
             nameof(LabelLineItem.NumberOfColors),
             nameof(LabelLineItem.NumberOfColors),
             lineItem.SourceManualReviewFlags);
+        lineItem.LabelWeightGrams = GetDecimal(
+            row,
+            columnMap,
+            nameof(LabelLineItem.LabelWeightGrams),
+            nameof(LabelLineItem.LabelWeightGrams),
+            lineItem.SourceManualReviewFlags);
+        lineItem.IsMonoMaterial = GetBoolean(
+            row,
+            columnMap,
+            nameof(LabelLineItem.IsMonoMaterial),
+            nameof(LabelLineItem.IsMonoMaterial),
+            lineItem.SourceManualReviewFlags);
+        lineItem.IsEasyToSeparate = GetBoolean(
+            row,
+            columnMap,
+            nameof(LabelLineItem.IsEasyToSeparate),
+            nameof(LabelLineItem.IsEasyToSeparate),
+            lineItem.SourceManualReviewFlags);
+        lineItem.IsReusableOrRecyclableMaterial = GetBoolean(
+            row,
+            columnMap,
+            nameof(LabelLineItem.IsReusableOrRecyclableMaterial),
+            nameof(LabelLineItem.IsReusableOrRecyclableMaterial),
+            lineItem.SourceManualReviewFlags);
+        lineItem.HasTraceability = GetBoolean(
+            row,
+            columnMap,
+            nameof(LabelLineItem.HasTraceability),
+            nameof(LabelLineItem.HasTraceability),
+            lineItem.SourceManualReviewFlags);
 
         return lineItem;
     }
@@ -204,6 +240,41 @@ public sealed class LabelsExcelImportService
         }
 
         AddInvalidNumericFlag(manualReviewFlags, fieldName, sourceValue, "Imported numeric value could not be parsed.");
+
+        return null;
+    }
+
+    private static bool? GetBoolean(
+        IXLRow row,
+        IReadOnlyDictionary<string, int> columnMap,
+        string propertyName,
+        string fieldName,
+        ICollection<ManualReviewFlag> manualReviewFlags)
+    {
+        if (!columnMap.TryGetValue(propertyName, out var columnNumber))
+        {
+            return null;
+        }
+
+        var cell = row.Cell(columnNumber);
+        if (cell.IsEmpty())
+        {
+            return null;
+        }
+
+        if (cell.DataType == XLDataType.Boolean
+            && cell.TryGetValue<bool>(out var booleanValue))
+        {
+            return booleanValue;
+        }
+
+        var sourceValue = cell.GetFormattedString().Trim();
+        if (TryParseBoolean(sourceValue, out var parsedValue))
+        {
+            return parsedValue;
+        }
+
+        AddInvalidNumericFlag(manualReviewFlags, fieldName, sourceValue, "Imported boolean value could not be parsed.");
 
         return null;
     }
@@ -274,6 +345,32 @@ public sealed class LabelsExcelImportService
                 CultureInfo.CurrentCulture,
                 out value);
     }
+
+    private static bool TryParseBoolean(string sourceValue, out bool value)
+    {
+        switch (sourceValue.Trim().ToLowerInvariant())
+        {
+            case "true":
+            case "yes":
+            case "y":
+            case "1":
+            case "ja":
+            case "j":
+                value = true;
+                return true;
+            case "false":
+            case "no":
+            case "n":
+            case "0":
+            case "nej":
+                value = false;
+                return true;
+            default:
+                value = false;
+                return false;
+        }
+    }
+
 
     private static string? NormalizeDecimalValue(string sourceValue)
     {

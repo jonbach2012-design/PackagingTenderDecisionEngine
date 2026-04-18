@@ -154,6 +154,65 @@ public sealed class LabelsExcelImportServiceTests
         Assert.Contains(supplierEvaluations, evaluation => evaluation.SupplierName == string.Empty);
     }
 
+    [Fact]
+    public void ImportTenderMapsRegulatoryColumnsIntoLineItems()
+    {
+        using var stream = CreateWorkbookStream(
+            ["Item no", "Supplier name", "Spend", "Price per 1,000", "Label weight (g)", "Mono-material design", "Easy separation", "Reusable or recyclable material direction", "Traceability"],
+            [
+                ["LBL-006", "Acme Labels", 100m, 10m, "1,8", "yes", "true", "1", "ja"],
+                ["LBL-007", "Beta Packaging", 100m, 20m, "2.5", "no", "false", "0", "nej"]
+            ]);
+
+        var lineItems = new LabelsExcelImportService()
+            .ImportTender(stream)
+            .LabelLineItems;
+
+        Assert.Equal(1.8m, lineItems[0].LabelWeightGrams);
+        Assert.True(lineItems[0].IsMonoMaterial);
+        Assert.True(lineItems[0].IsEasyToSeparate);
+        Assert.True(lineItems[0].IsReusableOrRecyclableMaterial);
+        Assert.True(lineItems[0].HasTraceability);
+        Assert.Equal(2.5m, lineItems[1].LabelWeightGrams);
+        Assert.False(lineItems[1].IsMonoMaterial);
+        Assert.False(lineItems[1].IsEasyToSeparate);
+        Assert.False(lineItems[1].IsReusableOrRecyclableMaterial);
+        Assert.False(lineItems[1].HasTraceability);
+    }
+
+    [Fact]
+    public void ImportedRegulatoryValuesContributeToEvaluationTotalAndClassification()
+    {
+        using var stream = CreateWorkbookStream(
+            ["Item no", "Supplier name", "Spend", "Price per 1,000", "Material", "Winding direction", "Label size", "Label weight (g)", "Mono-material design", "Easy separation", "Reusable or recyclable material direction", "Traceability"],
+            [
+                ["LBL-008", "Acme Labels", 100m, 10m, "PP white", "Left", "80x120", 1.5m, true, true, true, true]
+            ]);
+        var settings = new TenderSettings
+        {
+            ExpectedMaterial = "PP white",
+            ExpectedWindingDirection = "Left",
+            ExpectedLabelSize = "80x120",
+            MaximumLabelWeightGrams = 2m,
+            ExpectedMonoMaterial = true,
+            ExpectedEasySeparation = true,
+            ExpectedReusableOrRecyclableMaterial = true,
+            ExpectedTraceability = true
+        };
+
+        var tender = new LabelsExcelImportService().ImportTender(stream, "Imported tender", settings);
+        var lineEvaluations = new LineEvaluationService().EvaluateMany(tender.LabelLineItems, tender.Settings);
+        var supplierEvaluation = new SupplierAggregationService()
+            .AggregateBySupplierName(lineEvaluations)
+            .Single();
+        new SupplierClassificationService().ApplyClassification(supplierEvaluation);
+
+        Assert.Equal(100m, lineEvaluations.Single().ScoreBreakdown.Regulatory);
+        Assert.Equal(100m, supplierEvaluation.ScoreBreakdown.Regulatory);
+        Assert.Equal(100m, supplierEvaluation.ScoreBreakdown.Total);
+        Assert.Equal(SupplierClassification.Recommended, supplierEvaluation.Classification);
+    }
+
     private static MemoryStream CreateWorkbookStream(
         IReadOnlyList<string> headers,
         IReadOnlyList<IReadOnlyList<object?>> rows)

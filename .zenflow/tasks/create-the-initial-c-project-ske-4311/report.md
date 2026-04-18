@@ -1,46 +1,56 @@
-# Verify and Report
+# GUI Update
 
 ## Implementation Summary
 
-The initial PackagingTenderTool C# skeleton is present and runnable:
+PackagingTenderTool now has a minimal Windows desktop interface for the Labels v1 import and evaluation flow.
 
-- `PackagingTenderTool.sln`
-- `src/PackagingTenderTool.App` console host
-- `src/PackagingTenderTool.Core` domain/core class library
-- `tests/PackagingTenderTool.Core.Tests` focused domain tests
+The app host was changed from console output to a WinForms executable:
 
-The core project includes the initial Labels profile v1 domain models:
+- `src/PackagingTenderTool.App/PackagingTenderTool.App.csproj` now targets `net10.0-windows`
+- `UseWindowsForms` is enabled
+- `Program.cs` starts `MainForm`
+- `MainForm` provides the file picker, evaluation action, supplier result table, and status/error messaging
 
-- `Tender`
-- `TenderSettings`
-- `PackagingProfile`
-- `LabelLineItem`
-- `Supplier`
-- `LineEvaluation`
-- `SupplierEvaluation`
-- `ScoreBreakdown`
-- `ManualReviewFlag`
+The GUI reuses the existing core import, evaluation, aggregation, scoring, classification, and Manual Review behavior. It does not redesign the business logic.
 
-The model skeleton supports the current v1 constraints:
+## GUI Flow
 
-- Evaluation can start at line level and aggregate to supplier level.
-- Supplier evaluation can represent spend-weighted aggregation inputs.
-- Supplier grouping is represented by supplier name for v1.
-- Tender currency defaults to `EUR`.
-- Imported values can remain nullable where needed.
-- Manual review flags can be attached to line and supplier evaluations.
+1. Start the app:
 
-No final scoring thresholds, exclusion rules, advanced plausibility checks, Excel import, or full UI were implemented as part of this step.
+```powershell
+dotnet run --project src/PackagingTenderTool.App/PackagingTenderTool.App.csproj
+```
+
+2. Click `Browse...` and select a Labels v1 Excel workbook.
+3. Click `Import and evaluate`.
+4. Review supplier-level results in the table:
+
+- Supplier name
+- Total spend
+- Commercial score
+- Technical score
+- Regulatory score
+- Total score
+- Classification
+- Manual review required
+- Manual review flag count
+
+The status line reports successful imports, supplier counts, manual-review supplier counts, and import/evaluation errors.
+
+## Supporting Core Change
+
+Added `LabelsTenderEvaluationService` as a small workflow service that runs the existing sequence:
+
+- import Labels Excel data into a `Tender`
+- evaluate line items
+- aggregate supplier evaluations by supplier name
+- apply supplier classification
+
+Added `TenderEvaluationResult` to carry the tender, line evaluations, and supplier evaluations back to the app.
 
 ## Verification
 
 Commands run from the repository root:
-
-```powershell
-dotnet restore PackagingTenderTool.sln
-```
-
-Result: passed. All projects were up-to-date for restore.
 
 ```powershell
 dotnet build PackagingTenderTool.sln
@@ -52,20 +62,22 @@ Result: passed. Build succeeded with 0 warnings and 0 errors.
 dotnet test PackagingTenderTool.sln
 ```
 
-Result: passed. 6 tests passed, 0 failed, 0 skipped.
+Result: passed. 42 tests passed, 0 failed, 0 skipped.
+
+GUI smoke check:
 
 ```powershell
-dotnet run --project src/PackagingTenderTool.App/PackagingTenderTool.App.csproj
+Start-Process src\PackagingTenderTool.App\bin\Debug\net10.0-windows\PackagingTenderTool.App.exe
 ```
 
-Result: passed. The console host ran successfully and printed:
+Result: passed. The WinForms app launched successfully and was closed after startup verification.
 
-```text
-Hello, World!
-```
+## Scope Notes
 
-## Issues and Challenges
+The UI is intentionally minimal and practical.
 
-No verification failures were encountered.
+No advanced charts or visualizations were added.
 
-The console application is currently only a thin default runnable host and still prints `Hello, World!`. That is acceptable for the current skeleton scope, which focused on project structure and initial domain model contracts rather than UI behavior.
+No tender-rule editing was added.
+
+Manual Review remains non-blocking and is surfaced in the supplier result table.

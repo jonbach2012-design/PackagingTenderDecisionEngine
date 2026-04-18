@@ -45,13 +45,16 @@ public sealed class SupplierAggregationService
             return new ScoreBreakdown();
         }
 
-        return new ScoreBreakdown
+        var scoreBreakdown = new ScoreBreakdown
         {
             Commercial = WeightedAverage(lineEvaluations, totalSpend, score => score.Commercial),
             Technical = WeightedAverage(lineEvaluations, totalSpend, score => score.Technical),
-            Regulatory = WeightedAverage(lineEvaluations, totalSpend, score => score.Regulatory),
-            Total = WeightedAverage(lineEvaluations, totalSpend, score => score.Total)
+            Regulatory = WeightedAverage(lineEvaluations, totalSpend, score => score.Regulatory)
         };
+
+        scoreBreakdown.Total = ScoreBreakdownCalculator.CalculateTotal(scoreBreakdown);
+
+        return scoreBreakdown;
     }
 
     private static decimal? WeightedAverage(

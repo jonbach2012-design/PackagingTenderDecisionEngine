@@ -25,7 +25,7 @@ public sealed class EvaluationServiceTests
         Assert.Equal(100m, evaluation.ScoreBreakdown.Commercial);
         Assert.Equal(0m, evaluation.ScoreBreakdown.Technical);
         Assert.Equal(0m, evaluation.ScoreBreakdown.Regulatory);
-        Assert.Equal(100m, evaluation.ScoreBreakdown.Total);
+        Assert.Equal(30m, evaluation.ScoreBreakdown.Total);
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public sealed class EvaluationServiceTests
         Assert.Equal(50m, supplierEvaluation.ScoreBreakdown.Commercial);
         Assert.Equal(70m, supplierEvaluation.ScoreBreakdown.Technical);
         Assert.Equal(90m, supplierEvaluation.ScoreBreakdown.Regulatory);
-        Assert.Equal(50m, supplierEvaluation.ScoreBreakdown.Total);
+        Assert.Equal(72m, supplierEvaluation.ScoreBreakdown.Total);
     }
 
     [Fact]
@@ -164,7 +164,9 @@ public sealed class EvaluationServiceTests
         Assert.Equal(100m, evaluations[0].ScoreBreakdown.Commercial);
         Assert.Equal(50m, evaluations[1].ScoreBreakdown.Commercial);
         Assert.Equal(40m, evaluations[2].ScoreBreakdown.Commercial);
-        Assert.All(evaluations, evaluation => Assert.Equal(evaluation.ScoreBreakdown.Commercial, evaluation.ScoreBreakdown.Total));
+        Assert.Equal(30m, evaluations[0].ScoreBreakdown.Total);
+        Assert.Equal(15m, evaluations[1].ScoreBreakdown.Total);
+        Assert.Equal(12m, evaluations[2].ScoreBreakdown.Total);
     }
 
     [Fact]
@@ -215,7 +217,7 @@ public sealed class EvaluationServiceTests
             .Single();
 
         Assert.Equal(62.5m, supplierEvaluation.ScoreBreakdown.Commercial);
-        Assert.Equal(62.5m, supplierEvaluation.ScoreBreakdown.Total);
+        Assert.Equal(18.75m, supplierEvaluation.ScoreBreakdown.Total);
         Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Technical);
         Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Regulatory);
     }
@@ -336,5 +338,91 @@ public sealed class EvaluationServiceTests
         Assert.Equal(75m, supplierEvaluation.ScoreBreakdown.Technical);
         Assert.Equal(62.5m, supplierEvaluation.ScoreBreakdown.Commercial);
         Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Regulatory);
+        Assert.Equal(41.25m, supplierEvaluation.ScoreBreakdown.Total);
+    }
+
+    [Fact]
+    public void LineEvaluationServiceCalculatesTotalFromWeightedScoreDimensions()
+    {
+        var tenderSettings = new TenderSettings
+        {
+            ExpectedMaterial = "PP white",
+            ExpectedWindingDirection = "Left",
+            ExpectedLabelSize = "80x120"
+        };
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            PricePerThousand = 10m,
+            Material = "PP white",
+            WindingDirection = "Left",
+            LabelSize = "80x120"
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.Equal(100m, evaluation.ScoreBreakdown.Commercial);
+        Assert.Equal(100m, evaluation.ScoreBreakdown.Technical);
+        Assert.Equal(0m, evaluation.ScoreBreakdown.Regulatory);
+        Assert.Equal(60m, evaluation.ScoreBreakdown.Total);
+    }
+
+    [Fact]
+    public void LineEvaluationServiceLeavesTotalNullWhenRequiredScoreDimensionIsMissing()
+    {
+        var tenderSettings = new TenderSettings
+        {
+            ExpectedMaterial = "PP white",
+            ExpectedWindingDirection = "Left",
+            ExpectedLabelSize = "80x120"
+        };
+        var lineItem = new LabelLineItem
+        {
+            SupplierName = "Acme Labels",
+            Spend = 100m,
+            Material = "PP white",
+            WindingDirection = "Left",
+            LabelSize = "80x120"
+        };
+
+        var evaluation = new LineEvaluationService().Evaluate(lineItem, tenderSettings);
+
+        Assert.Null(evaluation.ScoreBreakdown.Commercial);
+        Assert.Equal(100m, evaluation.ScoreBreakdown.Technical);
+        Assert.Equal(0m, evaluation.ScoreBreakdown.Regulatory);
+        Assert.Null(evaluation.ScoreBreakdown.Total);
+        Assert.True(evaluation.RequiresManualReview);
+    }
+
+    [Fact]
+    public void SupplierAggregationServiceCalculatesTotalFromAggregatedWeightedDimensions()
+    {
+        var lineEvaluations = new[]
+        {
+            new LineEvaluation
+            {
+                LineItem = new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m },
+                ScoreBreakdown = new ScoreBreakdown { Commercial = 100m, Technical = 100m, Regulatory = 0m, Total = 60m }
+            },
+            new LineEvaluation
+            {
+                LineItem = new LabelLineItem { SupplierName = "Acme Labels", Spend = 75m },
+                ScoreBreakdown = new ScoreBreakdown { Commercial = 50m, Technical = 66.67m, Regulatory = 0m, Total = 35m }
+            }
+        };
+        foreach (var lineEvaluation in lineEvaluations)
+        {
+            lineEvaluation.LineItemId = lineEvaluation.LineItem.Id;
+        }
+
+        var supplierEvaluation = new SupplierAggregationService()
+            .AggregateBySupplierName(lineEvaluations)
+            .Single();
+
+        Assert.Equal(62.5m, supplierEvaluation.ScoreBreakdown.Commercial);
+        Assert.Equal(75m, supplierEvaluation.ScoreBreakdown.Technical);
+        Assert.Equal(0m, supplierEvaluation.ScoreBreakdown.Regulatory);
+        Assert.Equal(41.25m, supplierEvaluation.ScoreBreakdown.Total);
     }
 }

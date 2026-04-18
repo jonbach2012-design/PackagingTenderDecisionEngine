@@ -49,13 +49,16 @@ public sealed class LineEvaluationService
         var commercialScore = CalculateCommercialScore(lineItem, comparisonLines);
         var technicalScore = CalculateTechnicalScore(lineItem, tenderSettings);
 
-        return new ScoreBreakdown
+        var scoreBreakdown = new ScoreBreakdown
         {
             Commercial = commercialScore,
             Technical = technicalScore,
-            Regulatory = 0m,
-            Total = commercialScore
+            Regulatory = 0m
         };
+
+        scoreBreakdown.Total = ScoreBreakdownCalculator.CalculateTotal(scoreBreakdown);
+
+        return scoreBreakdown;
     }
 
     private static decimal? CalculateCommercialScore(

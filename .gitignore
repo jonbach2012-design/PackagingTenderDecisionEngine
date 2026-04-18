@@ -1,3 +1,10 @@
 bin/
 obj/
 .vs/
+node_modules/
+dist/
+build/
+.cache/
+*.log
+TestResults/
+coverage/

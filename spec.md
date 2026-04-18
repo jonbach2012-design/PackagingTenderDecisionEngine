@@ -1,440 +1,397 @@
-# Packaging Tender Evaluation Tool - Specification
+# PackagingTenderTool Specification
 
 ## 1. Purpose
-The purpose of this application is to support structured comparison and evaluation of packaging suppliers during a tender process.
 
-The tool shall function as an internal decision-support and recommendation model. It must help the user compare multiple suppliers consistently, calculate a weighted total score, classify suppliers, and identify which suppliers best support Scandi Standard’s packaging strategy.
+PackagingTenderTool is a decision-support application for packaging tenders.
 
-The application is both:
-- an exam project
-- a business-relevant prototype
+The purpose of the tool is to help evaluate and compare supplier bids in a more structured, transparent, and reusable way than a traditional spreadsheet-only process.
 
----
-
-## 2. Problem Statement
-Supplier evaluation in packaging tenders can become inconsistent if criteria, weighting, exclusion rules, and strategic considerations are handled manually or differently from project to project.
-
-A structured solution is needed to:
-- compare suppliers within the same packaging type
-- apply tender-specific weighting
-- support transparent decision-making
-- identify suppliers that fit both current business needs and future packaging strategy
-- take into account future requirements related to PPWR and reduced EPR fees
-
-The model must also support that certain conditions automatically exclude a supplier, regardless of the total score.
-
----
-
-## 3. Business Context
-The system is intended for packaging tenders where suppliers are compared within the same packaging category.
-
-Version 1 supports:
-- Trays
-- Labels
-- Cardboard
-
-Suppliers must only be compared within the same packaging type in the same tender.
-
-The Excel files used in the tender process have a locked structure for each packaging type. The columns may differ between packaging types, but for a given packaging type the structure is fixed.
-
-The model should support not only commercial comparison, but also strategic supplier selection in line with Scandi Standard’s packaging direction.
-
----
-
-## 4. Users
-Primary users:
-- Procurement
-- Category Manager
-- Packaging Specialist
-- Cross-functional tender team
-
-The tool should be usable by business users without requiring Visual Studio Code.
-
----
-
-## 5. Scope for Version 1
-Version 1 shall support:
+Version 1 is focused on:
 - one tender at a time
-- one selected packaging type per tender
-- comparison of multiple suppliers within the same packaging type
-- import of supplier data from Excel
-- fixed Excel templates per packaging type
-- tender-specific weighting of criteria
-- weighted total score from 1-100
-- supplier classification
-- automatic exclusion based on mandatory criteria
-- result overview with ranking
-- visual comparison, including radar chart
+- one packaging profile per tender
+- Excel-based input
+- structured evaluation at line level
+- aggregated supplier-level scoring
+- ranking and recommendation support
 
-Version 1 does not need:
-- ERP integration
-- database backend
-- multi-user support
-- advanced authentication
-- full cloud/web deployment
-- full historical tender archive
+The tool is not intended to fully replace procurement judgment. It is intended to support it with a more systematic evaluation model.
 
 ---
 
-## 6. Packaging Profiles
-The system uses packaging-specific evaluation profiles.
+## 2. Version 1 Scope
 
-Each packaging profile defines:
-- packaging type
-- expected Excel structure
-- relevant evaluation criteria
-- default weights
-- exclusion rules
-- score mapping rules
+Version 1 includes:
+- one tender at a time
+- one selected packaging profile per tender
+- Excel import
+- line-level evaluation
+- supplier-level aggregation
+- weighted scoring model
+- manual review handling for missing or invalid data
+- supplier ranking
+- score breakdown
+- basic recommendation support
+- simple visual output such as radar chart
 
-Version 1 includes the following packaging profiles:
+Version 1 does not yet include:
+- final exclusion logic
+- advanced plausibility checks
+- full M3 supplier ID integration
+- multi-profile tenders in the same run
+- advanced regulatory rules engine
+- final classification threshold logic
+
+---
+
+## 3. Packaging Profile Strategy
+
+Version 1 starts with one packaging profile:
+
 - Labels
+
+The intention is to establish the core model using Labels first, and later extend the same architecture to additional packaging profiles such as:
 - Trays
 - Cardboard
 
-This means the system uses one common evaluation engine, but different rules and templates depending on the selected packaging type.
+Each tender in version 1 uses one packaging profile only.
 
 ---
 
-## 7. Input Model
+## 4. Labels Profile v1
 
-### 7.1 User input
-The user provides:
-- tender name
-- packaging type
-- criteria weights
-- manual ratings where needed
-- optional comments
+### 4.1 Input columns
 
-### 7.2 Excel input
-The user imports supplier data from Excel.
+The Labels profile version 1 uses the following Excel input columns:
 
-For each packaging type, the Excel template is fixed in structure and must contain the expected columns for that type.
-
-The imported Excel file may contain:
-- direct evaluation fields
-- supporting raw data fields
-- contextual fields
-- fields used for validation
-- fields used only for reference
-
-Not all columns are necessarily scored directly.
-
-Some imported fields can be transformed directly into scores.  
-Some fields require manual evaluation or interpretation by the user.  
-Some fields may trigger automatic exclusion.
-
-### 7.3 Types of imported data
-Imported data may include:
-- raw technical data
-- commercial data
-- sustainability / strategic data
-- qualification / compliance data
-
-Examples of possible Excel fields:
-- SupplierName
-- SupplierCountry
-- PackagingType
+- Item no
+- Item name
+- Supplier name
+- Site
+- Quantity
+- Spend
+- Price per 1,000
 - Price
-- MOQ
-- LeadTime
-- Certifications
-- MaterialType
-- RecyclabilityData
-- CO2Data
-- ComplianceIndicators
-- Technical specification fields depending on packaging type
+- Theoretical spend
+- Label size
+- Winding direction
+- Material
+- Reel diameter / pcs per roll
+- No. of colors
+- Comment
+
+### 4.2 Tender settings
+
+Each tender has its own settings.
+
+For Labels version 1, the following settings apply:
+
+- Packaging type: Labels
+- One currency per tender
+- Default currency: EUR
+- Currency can be changed during tender setup, for example to NOK
+- Currency applies at tender level, not line level
+
+### 4.3 Supplier identification
+
+In version 1, supplier grouping is based on:
+
+- Supplier name
+
+Later versions may introduce Supplier ID when M3 integration is more mature.
 
 ---
 
-## 8. Evaluation Criteria
-The tool should support evaluation criteria grouped into the following main categories:
+## 5. Evaluation Structure
 
-### 8.1 Commercial
-Examples:
-- price competitiveness
-- payment terms
-- MOQ / batch economics
-- total cost impact
+### 5.1 Evaluation flow
 
-### 8.2 Technical Fit
-Examples:
-- specification fit
-- material suitability
-- production compatibility
-- print / application / sealing / format fit depending on packaging type
+Evaluation starts at line level.
 
-### 8.3 Supply & Service
-Examples:
-- lead time
-- delivery reliability
-- logistics setup
-- support / responsiveness
-- flexibility
+Each imported line is evaluated individually first.
 
-### 8.4 Compliance
-Examples:
-- required certifications
-- food safety / legal compliance
-- traceability
-- documentation quality
+After line-level evaluation, results are aggregated to supplier level.
 
-### 8.5 Sustainability & Strategy
-Examples:
-- recyclability
-- material simplicity
-- future readiness for PPWR
-- lower expected EPR impact
-- sustainability maturity
-- innovation capability aligned with Scandi Standard strategy
+Supplier-level aggregation is weighted by:
 
-Some criteria are common across packaging types.  
-Some criteria are packaging-specific and defined in the packaging profile.
+- Spend
+
+This means suppliers with higher spend impact more heavily on the aggregated result than low-spend lines.
+
+### 5.2 Evaluation levels
+
+The model therefore has two main evaluation levels:
+
+#### Line level
+Used to evaluate:
+- commercial attractiveness per line
+- technical fit per line
+- regulatory/sustainability fit per line
+- missing data or invalid data
+- manual review triggers
+
+#### Supplier level
+Used to evaluate:
+- aggregated supplier score
+- aggregated score breakdown
+- ranking across suppliers
+- overall recommendation support
 
 ---
 
-## 9. Scoring Logic
-The final evaluation combines:
-1. imported objective data
-2. user-entered ratings
-3. packaging-profile-specific scoring rules
-4. tender-specific weights
+## 6. Data Quality Handling
 
-The model must calculate:
-- criterion score
-- weighted total score
-- classification
-- exclusion status
+### 6.1 Version 1 direction
 
-The final total score shall be shown on a scale from 1-100.
+Missing or invalid data should trigger:
 
-Weights must be configurable for each tender.  
-The sum of all active weights must equal 100.
+- Manual Review
 
-The exact scoring scale for each criterion can be finalized later, but version 1 should be designed so that scoring logic can be adjusted without redesigning the whole application.
-
----
-
-## 10. Exclusion Logic
-Certain conditions automatically exclude a supplier from recommendation, regardless of total score.
+This applies broadly in version 1 to all relevant fields where possible.
 
 Examples may include:
-- missing mandatory certification
-- technical incompatibility with packaging requirements
-- wrong packaging type
-- failure to meet critical compliance requirements
-- failure on minimum threshold for a mandatory criterion
-- inability to support required strategic or regulatory direction
+- missing values
+- invalid number formats
+- unexpected text in numeric fields
+- incomplete technical values
+- unclear or unusable input data
 
-Excluded suppliers may still be visible in the result overview, but they must be clearly marked as excluded.
+### 6.2 Non-blocking approach
 
----
+In version 1:
+- missing or invalid data does not automatically exclude a supplier
+- missing or invalid data should not automatically stop the full evaluation
+- instead, the line or supplier should be flagged for manual review
 
-## 11. Strategic Alignment
-The model must not only compare suppliers on current commercial and technical fit.
-
-It must also support strategic supplier selection by rewarding suppliers that align with Scandi Standard’s packaging direction, including:
-- improved recyclability
-- reduced material complexity
-- future readiness for PPWR
-- lower expected EPR fee exposure
-- stronger sustainability profile
-- stronger traceability and compliance readiness
-
-This is important because the model is intended as a decision-support tool, not only a price comparison tool.
+This is done to allow model learning and testing before stricter rules are introduced.
 
 ---
 
-## 12. Output / Results
-The application must produce:
-- supplier name
-- packaging type
-- score per criterion
-- weighted total score from 1-100
-- classification
-- exclusion flag if applicable
-- recommendation summary
+## 7. Scoring Model
+
+## 7.1 Main dimensions
+
+The Labels evaluation model version 1 is divided into three main dimensions:
+
+- Commercial: 30%
+- Technical: 30%
+- Regulatory: 40%
+
+## 7.2 Rationale for weighting
+
+Regulatory has the highest weight because PPWR and EPR related conditions may create major financial, operational, and compliance risk.
+
+This risk may affect:
+- the supplier
+- the buying company
+- future packaging viability
+- market access
+
+This means the evaluation must not focus on direct price alone.
+
+A low-cost offer may still be weak overall if it creates:
+- additional compliance costs
+- packaging redesign risk
+- poor recyclability
+- poor future fit with packaging requirements
+- higher total business risk
+
+---
+
+## 8. Commercial Direction
+
+Commercial scoring must have significant impact.
+
+Price should matter clearly in the model.
+
+The general direction for version 1 is:
+
+- lowest price should result in the highest commercial score
+
+This should be considered:
+- at line level
+- at aggregated supplier level
+
+The following commercial inputs are relevant:
+- Spend
+- Price per 1,000
+- Price
+- Theoretical spend
+
+Theoretical spend is important, but it is not sufficient on its own for final evaluation.
+
+Detailed price scoring method beyond this overall principle is still to be refined later.
+
+---
+
+## 9. Technical Direction
+
+Technical scoring should reflect whether a supplier’s label solution fits the actual packaging and operational requirements.
+
+Relevant technical fields may include:
+- Label size
+- Winding direction
+- Material
+- Reel diameter / pcs per roll
+- No. of colors
+
+The detailed technical scoring logic is still to be clarified later.
+
+Version 1 should be designed so technical scoring criteria can be extended without changing the overall architecture.
+
+---
+
+## 10. Regulatory Direction
+
+Regulatory and sustainability-related conditions must influence the evaluation strongly.
+
+Material differences are important because the best business choice is not always the lowest direct price option.
+
+EPR fees, PPWR-related requirements, recyclability implications, and traceability may materially change the final value of a supplier offer.
+
+### 10.1 Important regulatory focus areas for Labels v1
+
+Important regulatory and sustainability-related focus areas include:
+
+- lower weight
+- mono-material design
+- easy separation
+- reusable or recyclable material direction
+- traceability
+
+### 10.2 Score behavior
+
+Regulatory criteria should be able to:
+- increase score
+- reduce score
+
+This means regulatory assessment is not only about penalties. Strong future-fit solutions should also receive positive recognition.
+
+### 10.3 Future direction
+
+Some regulatory criteria may later become:
+- hard exclusions
+- knockout rules
+
+But not in version 1.
+
+---
+
+## 11. Manual Review and Future Validation
+
+### 11.1 Manual review in version 1
+
+Manual Review is the main safeguard in version 1 for:
+- missing data
+- invalid data
+- unclear values
+
+### 11.2 Future plausibility checks
+
+A later version should support plausibility checks for possible misunderstandings or unrealistic supplier input.
+
+Examples may include:
+- unusually low or high prices
+- inconsistent relationships between quantity, spend, and price
+- suspicious material values
+- major deviations compared with other supplier bids
+- possible misunderstanding of tender requirements
+
+This is a future enhancement and not a blocking mechanism in version 1.
+
+---
+
+## 12. Expected Output
+
+Version 1 should provide output at both line level and supplier level.
+
+### 12.1 Line-level output
+Examples:
+- line score
+- dimension breakdown
+- manual review flag
+- review reason(s)
+
+### 12.2 Supplier-level output
+Examples:
+- aggregated supplier score
+- score breakdown by dimension
 - supplier ranking
-- visual comparison, including radar chart
+- recommendation support
+- manual review summary
+- radar chart or similar simple visual
 
-Possible classifications:
+---
+
+## 13. Recommendation and Classification
+
+The tool should support recommendation logic, but final threshold definitions are still open.
+
+Classification logic is expected later to include outcomes such as:
 - Recommended
 - Conditional
 - Not Recommended
 - Excluded
 
-The output should be understandable for non-technical users.
+However, detailed thresholds and conditions are not yet defined in version 1.
 
 ---
 
-## 13. Business Rules
-The system must follow these rules:
+## 14. Domain Direction
 
-### 13.1 Packaging type rule
-Only suppliers within the same packaging type may be compared in the same tender.
+The expected domain model for version 1 may include concepts such as:
 
-### 13.2 Weighting rule
-Criteria weights must be configurable per tender.  
-The sum of weights must equal 100.
+- Tender
+- TenderSettings
+- PackagingProfile
+- LabelLineItem
+- Supplier
+- LineEvaluation
+- SupplierEvaluation
+- ScoreBreakdown
+- ManualReviewFlag
+- ClassificationResult
 
-### 13.3 Excel structure rule
-Excel files are fixed in structure for each packaging type.  
-The system must validate that the imported file matches the selected packaging profile.
-
-### 13.4 Exclusion rule
-Mandatory exclusion criteria override total score.
-
-### 13.5 Strategic rule
-The model should support supplier selection in line with packaging strategy, not only lowest short-term cost.
-
----
-
-## 14. Data Model / Classes
-Expected core classes in version 1:
-
-### `Tender`
-Contains:
-- tender name
-- packaging type
-- selected criteria
-- criteria weights
-- supplier list
-
-### `Supplier`
-Contains:
-- supplier name
-- country
-- packaging type
-- imported values
-- manual scores
-- comments
-
-### `Criterion`
-Contains:
-- criterion name
-- description
-- weight
-- minimum threshold
-- isMandatory
-- category group
-
-### `PackagingProfile`
-Contains:
-- packaging type
-- expected Excel columns
-- relevant criteria
-- default weights
-- exclusion rules
-- score mapping rules
-
-### `EvaluationResult`
-Contains:
-- supplier
-- criterion scores
-- weighted total score
-- classification
-- excluded flag
-- explanation summary
-
-### `ScoreCalculator`
-Responsible for:
-- calculating weighted score
-- transforming criterion values into total score
-
-### `ClassificationEngine`
-Responsible for:
-- assigning Recommended / Conditional / Not Recommended / Excluded
-
-### `ExcelImporter`
-Responsible for:
-- reading supplier data from Excel
-- validating template structure
-- mapping imported columns to system fields
+Names may change during implementation, but the architecture should support clear separation between:
+- tender setup
+- imported source data
+- scoring logic
+- aggregation logic
+- review handling
+- output generation
 
 ---
 
-## 15. User Flow
+## 15. Open Decisions
 
-### Step 1
-Create a new tender
+The following areas remain open and will be clarified later:
 
-### Step 2
-Enter tender name
-
-### Step 3
-Select packaging type
-
-### Step 4
-Load matching packaging profile and criteria
-
-### Step 5
-Adjust tender-specific weights
-
-### Step 6
-Import supplier Excel file
-
-### Step 7
-Review imported suppliers and complete manual scoring where required
-
-### Step 8
-Run evaluation
-
-### Step 9
-View ranking, classifications, exclusions, total scores, and radar chart
+- exact price scoring method beyond the general lowest-price direction
+- exact material scoring logic
+- detailed technical scoring definition
+- classification thresholds
+- future exclusion rules
+- future plausibility checks
+- possible supplier ID support through M3 integration
 
 ---
 
-## 16. Validation Rules
-The system must validate:
-- tender name is entered
-- packaging type is selected
-- imported Excel file matches expected structure
-- imported rows match selected packaging type
-- required fields are present
-- weights sum to 100
-- mandatory criteria are evaluated
-- excluded suppliers are clearly marked
+## 16. Summary
 
----
+PackagingTenderTool version 1 starts with a Labels profile and a structured evaluation model.
 
-## 17. Non-Functional Requirements
-The application should:
-- run locally on a normal user machine
-- be usable without VS Code
-- have a clear GUI
-- be understandable for non-technical users
-- be modular and maintainable
-- support future extension without major redesign
+The model evaluates suppliers:
+- first at line level
+- then at supplier level
+- using spend-weighted aggregation
 
----
+The model is built around three dimensions:
+- Commercial
+- Technical
+- Regulatory
 
-## 18. Future Improvements
-Possible future improvements:
-- save/load tenders
-- export results to Excel or PDF
-- database support
-- audit trail / change history
-- Power BI integration
-- AI-assisted explanation of recommendation
-- additional packaging categories
-- more advanced scenario analysis
-- cloud deployment
+Regulatory is weighted highest because compliance and packaging sustainability requirements may create major downstream risk for both supplier and buyer.
 
----
-
-## 19. Open Questions / Assumptions
-
-### Current assumptions
-- version 1 compares suppliers only within one packaging type at a time
-- version 1 supports trays, labels, and cardboard
-- Excel template is fixed and controlled externally
-- some scores are imported, while others are entered manually
-- exclusion rules are defined per packaging profile
-- the tool supports decision-making, but does not replace human judgment
-
-### Open questions
-- which criteria are common across all packaging types?
-- which criteria are packaging-specific for trays, labels, and cardboard?
-- which exact exclusion rules must be active in version 1?
-- which fields should be scored automatically vs manually?
-- what scoring scale should be used per criterion?
+Version 1 is intentionally conservative:
+- missing or invalid data leads to Manual Review
+- not automatic exclusion
+- exclusion and advanced anomaly logic can be introduced later

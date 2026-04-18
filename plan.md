@@ -1,241 +1,360 @@
-# Packaging Tender Evaluation Tool - Development Plan
+# PackagingTenderTool Plan
 
-## 1. Goal
-Build a first working version of a desktop-based tender evaluation tool for packaging suppliers.
+## 1. Objective
 
-The tool must:
-- import supplier data from Excel
-- support trays, labels, and cardboard
-- apply packaging-specific evaluation profiles
-- allow tender-specific weights
-- calculate total score from 1-100
-- classify suppliers
-- automatically exclude suppliers where required
-- show results visually, including radar chart
+The objective of PackagingTenderTool is to create a structured packaging tender evaluation tool that is easier to reuse, explain, and improve than a spreadsheet-only process.
 
----
-
-## 2. Development Strategy
-The solution should be developed in phases, starting with the core business logic before building the full GUI.
-
-Main principle:
-1. define the model clearly
-2. build the logic
-3. build the import
-4. build the interface
-5. validate and test
+Version 1 should establish:
+- a stable core domain model
+- a clear Labels packaging profile
+- line-level evaluation
+- supplier-level aggregation
+- manual review handling
+- a first usable scoring and ranking workflow
 
 ---
 
-## 3. Phase 1 - Clarify Core Model
+## 2. Current Status
+
+The repository is now aligned to one local path and one Git repository.
+
+Confirmed repository setup:
+- local working path is the PackagingTenderTool repository
+- Git is connected and working
+- plan.md and spec.md are the current source documents
+
+The project is still in early definition stage and does not yet contain full implementation code.
+
+---
+
+## 3. Confirmed Product Direction
+
+The following decisions are now confirmed for version 1:
+
+### 3.1 Scope
+- version 1 handles one tender at a time
+- version 1 uses one packaging profile per tender
+- Labels is the first packaging profile
+
+### 3.2 Evaluation structure
+- evaluation starts at line level
+- line results are aggregated to supplier level
+- supplier aggregation is weighted by Spend
+
+### 3.3 Supplier identity
+- supplier grouping is based on Supplier name in version 1
+- Supplier ID may be introduced later when M3 integration is more mature
+
+### 3.4 Currency handling
+- one currency applies per tender
+- currency does not vary by line
+- default currency is EUR
+- tender setup may allow other currencies, such as NOK
+
+### 3.5 Data quality handling
+- missing or invalid data should trigger Manual Review
+- this applies broadly in version 1 if possible
+- missing or invalid data should not automatically exclude a supplier in version 1
+
+### 3.6 Scoring structure
+- Commercial: 30%
+- Technical: 30%
+- Regulatory: 40%
+
+### 3.7 Commercial direction
+- price must influence evaluation
+- lowest price should generally result in the highest commercial score
+- theoretical spend is important but not sufficient on its own
+
+### 3.8 Regulatory direction
+Regulatory has the highest weight because PPWR and EPR related issues may create significant risk not only for the supplier, but also for the buying company.
+
+Important focus areas include:
+- lower weight
+- mono-material design
+- easy separation
+- reusable or recyclable material direction
+- traceability
+
+Regulatory criteria should be able to both:
+- increase score
+- reduce score
+
+Some regulatory criteria may later become knockout rules, but not in version 1.
+
+---
+
+## 4. Remaining Open Decisions
+
+The following items are not yet fully defined:
+
+- detailed price scoring method
+- detailed material scoring logic
+- detailed technical scoring logic
+- classification thresholds
+- future exclusion / knockout rules
+- future plausibility checks for suspicious supplier inputs
+- possible use of Supplier ID through M3 integration
+
+These are important, but they do not need to block the first implementation skeleton.
+
+---
+
+## 5. Implementation Strategy
+
+The recommended build order is:
+
+1. lock the current specification baseline
+2. create the core project structure
+3. create the domain model
+4. implement line-level evaluation
+5. implement supplier aggregation
+6. implement manual review handling
+7. test with hardcoded or sample data
+8. implement Excel import
+9. implement basic UI
+10. add visualization such as supplier breakdown and radar chart
+11. refine scoring logic
+12. add later enhancements
+
+This order reduces complexity and keeps architecture ahead of UI.
+
+---
+
+## 6. Phased Plan
+
+## Phase 1 — Specification Baseline
+Goal:
+- establish a stable version 1 baseline for Labels
+
 Tasks:
-- finalize packaging types for version 1
-- define common evaluation groups
-- define initial criteria
-- identify likely exclusion criteria
-- define assumptions for Excel structure
-- confirm overall output requirements
-
-Deliverable:
-- stable `spec.md`
+- confirm Labels as first packaging profile
+- confirm input columns
+- confirm tender-level currency handling
+- confirm line-to-supplier evaluation flow
+- confirm spend-weighted aggregation
+- confirm manual review direction
+- confirm 30/30/40 scoring model
+- document open decisions clearly
 
 Status:
-- started
+- mostly completed
 
 ---
 
-## 4. Phase 2 - Define Packaging Profiles
+## Phase 2 — Project Skeleton
+Goal:
+- create the base project and technical structure
+
 Tasks:
-- create first profile for Labels
-- define expected Excel columns for Labels
-- define relevant criteria for Labels
-- define score mapping logic for Labels
-- define exclusion rules for Labels
+- create the C# solution/project
+- establish folder structure
+- create initial domain classes
+- prepare separation between models, services, import, and UI
 
-Then repeat for:
-- Trays
-- Cardboard
-
-Deliverable:
-- packaging profile definitions for all 3 version 1 types
+Expected outcome:
+- a runnable empty skeleton with domain structure
 
 ---
 
-## 5. Phase 3 - Define Scoring Model
+## Phase 3 — Domain Model
+Goal:
+- represent the tender model cleanly in code
+
+Candidate entities:
+- Tender
+- TenderSettings
+- PackagingProfile
+- LabelLineItem
+- Supplier
+- LineEvaluation
+- SupplierEvaluation
+- ScoreBreakdown
+- ManualReviewFlag
+- ClassificationResult
+
 Tasks:
-- define weight model
-- define how total score is calculated
-- define classification thresholds
-- define how exclusion overrides total score
-- define which inputs are automatic vs manual
+- define properties
+- define relationships
+- define basic enums/value objects where needed
 
-Deliverable:
-- clear scoring and classification logic
+Expected outcome:
+- a stable domain foundation for scoring and import
 
 ---
 
-## 6. Phase 4 - Design Data Model / Classes
+## Phase 4 — Scoring Engine v1
+Goal:
+- implement the first scoring logic
+
 Tasks:
-- design `Tender`
-- design `Supplier`
-- design `Criterion`
-- design `PackagingProfile`
-- design `EvaluationResult`
-- design `ScoreCalculator`
-- design `ClassificationEngine`
-- design `ExcelImporter`
+- implement Commercial score structure
+- implement placeholder Technical score structure
+- implement placeholder Regulatory score structure
+- implement weighted total score
+- implement line-level scoring
+- implement spend-weighted supplier aggregation
 
-Deliverable:
-- agreed class structure for implementation
+Expected outcome:
+- first working evaluation engine without final advanced rules
 
 ---
 
-## 7. Phase 5 - Build Core Logic
+## Phase 5 — Manual Review Engine v1
+Goal:
+- support safe handling of incomplete or invalid input
+
 Tasks:
-- implement scoring logic
-- implement classification logic
-- implement exclusion logic
-- test with manual sample data before Excel import
+- define manual review triggers
+- flag missing values
+- flag invalid values
+- collect review reasons
+- expose review status in results
 
-Deliverable:
-- working evaluation engine without full GUI dependency
+Expected outcome:
+- non-blocking review behavior in line with version 1 direction
 
 ---
 
-## 8. Phase 6 - Build Excel Import
+## Phase 6 — Sample Data Testing
+Goal:
+- validate architecture and scoring behavior early
+
 Tasks:
-- read Excel input
-- validate template structure
-- map imported data into supplier objects
-- handle mismatched packaging type
-- handle missing required columns
+- create sample Labels tender data
+- test scoring flow
+- test aggregation flow
+- test manual review behavior
+- test supplier grouping by Supplier name
 
-Deliverable:
-- working Excel import for at least one profile first, then all three
-
-Recommended order:
-1. Labels
-2. Trays
-3. Cardboard
+Expected outcome:
+- confidence that core model works before Excel import/UI work expands complexity
 
 ---
 
-## 9. Phase 7 - Build GUI
-Suggested GUI sections:
-- Start / Main menu
-- Create Tender screen
-- Weight setup screen
-- Import screen
-- Supplier review screen
-- Results screen
+## Phase 7 — Excel Import
+Goal:
+- import Labels tender data from Excel
 
-GUI must allow user to:
-- create tender
-- choose packaging type
-- adjust weights
-- import Excel
-- review supplier data
-- run evaluation
-- view ranking and charts
-
-Deliverable:
-- working desktop interface for non-technical users
-
----
-
-## 10. Phase 8 - Visual Results
 Tasks:
-- show total score
-- show classification
-- show exclusion status
-- show score breakdown by criterion
-- show radar chart
-- show ranking table
-- show short recommendation summary
+- map required columns
+- validate presence of required columns
+- parse rows into LabelLineItem objects
+- trigger Manual Review on invalid or missing input
 
-Deliverable:
-- understandable results view
+Expected outcome:
+- first end-to-end input pipeline from Excel into domain model
 
 ---
 
-## 11. Phase 9 - Validation and Testing
+## Phase 8 — Basic UI
+Goal:
+- provide a usable interface for version 1
+
+Suggested areas:
+- Tender setup
+- Excel import and validation
+- Supplier ranking
+- Supplier detail view
+
+Expected outcome:
+- a minimal but understandable working prototype
+
+---
+
+## Phase 9 — Visualization
+Goal:
+- provide simple decision-support visuals
+
 Tasks:
-- test with valid Excel files
-- test with wrong packaging type
-- test with missing columns
-- test with invalid weights
-- test with excluded suppliers
-- test classification thresholds
-- test UI flow from start to result
+- supplier ranking table
+- dimension score breakdown
+- manual review visibility
+- radar chart or similar overview
 
-Deliverable:
-- stable version 1 candidate
+Expected outcome:
+- clearer comparison between suppliers
 
 ---
 
-## 12. Phase 10 - Documentation
-Tasks:
-- update README
-- explain project purpose
-- explain structure
-- explain business relevance
-- explain SDD approach
-- explain limitations and future improvements
+## Phase 10 — Refinement
+Goal:
+- improve realism after first prototype is stable
 
-Deliverable:
-- exam-ready project documentation
-
----
-
-## 13. MVP Definition
-A version 1 MVP is complete when:
-- one tender can be created
-- packaging type can be selected
-- Excel can be imported
-- multiple suppliers can be evaluated
-- weights can be adjusted
-- total score is calculated
-- classification is shown
-- exclusions are applied
-- results are displayed clearly
+Possible refinement topics:
+- material scoring logic
+- threshold logic
+- classification outcomes
+- plausibility checks
+- future exclusion rules
+- M3 supplier ID integration
+- additional packaging profiles
 
 ---
 
-## 14. Recommended Implementation Order
-1. spec.md
-2. label profile
-3. scoring logic
-4. exclusion logic
-5. core classes
-6. import logic
-7. basic GUI
-8. results screen
-9. chart
-10. testing and cleanup
+## 7. Working Principles
+
+The project should follow these principles:
+
+- start small and stable
+- architecture before interface
+- line-level logic before supplier-level summary visuals
+- manual review before automatic exclusion
+- extensibility for future profiles
+- clear business explanation for each scoring dimension
+
+This is especially important because the tool must be understandable not only technically, but also commercially and operationally.
 
 ---
 
-## 15. Risks / Challenges
-Known risks:
-- too many criteria too early
-- unclear boundary between imported data and manual scoring
-- packaging-specific logic becoming too complex
-- Excel template variations
-- overbuilding version 1
+## 8. Immediate Next Step
 
-Mitigation:
-- start with one packaging profile first
-- keep version 1 narrow
-- separate common logic from packaging-specific logic
-- validate Excel strictly
-- treat advanced features as later scope
+The next practical step is:
+
+- update spec.md and plan.md in the repository
+- commit the updated baseline
+- create the project skeleton
+- begin the domain model
+
+Suggested first implementation focus:
+- Tender
+- TenderSettings
+- LabelLineItem
+- LineEvaluation
+- SupplierEvaluation
+- ScoreBreakdown
+- ManualReviewFlag
 
 ---
 
-## 16. Immediate Next Steps
-Next concrete steps:
-1. identify common criteria groups
-2. define first Labels profile
-3. list likely exclusion rules for Labels
-4. decide initial scoring approach
-5. start class model draft
+## 9. Suggested Commit Sequence
+
+A sensible near-term Git sequence could be:
+
+1. refine specification baseline
+2. create project skeleton
+3. add core domain models
+4. add first scoring engine
+5. add manual review handling
+6. add sample data tests
+7. add Excel import
+8. add UI foundation
+
+This gives a clean history and makes the process easier to explain later.
+
+---
+
+## 10. Summary
+
+PackagingTenderTool is now ready to move from definition into structured implementation.
+
+The most important baseline decisions for Labels version 1 are now set:
+- one tender
+- one packaging profile
+- line-level scoring
+- spend-weighted supplier aggregation
+- manual review instead of early exclusion
+- 30/30/40 dimension model
+- regulatory weighted highest because compliance risk affects both supplier and buyer
+
+The next step is to turn this into a project skeleton and start the domain model.

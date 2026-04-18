@@ -14,6 +14,10 @@ public sealed class SupplierEvaluation
 
     public List<ManualReviewFlag> ManualReviewFlags { get; set; } = [];
 
+    public SupplierClassification? Classification { get; set; }
+
+    public string? ClassificationReason { get; set; }
+
     public bool RequiresManualReview =>
         ManualReviewFlags.Count > 0 || LineEvaluations.Any(line => line.RequiresManualReview);
 }

@@ -13,9 +13,11 @@ var tender = new LabelsExcelImportService().ImportTender(
 
 var lineEvaluationService = new LineEvaluationService();
 var supplierAggregationService = new SupplierAggregationService();
+var supplierClassificationService = new SupplierClassificationService();
 
 var lineEvaluations = lineEvaluationService.EvaluateMany(tender.LabelLineItems, tender.Settings);
 var supplierEvaluations = supplierAggregationService.AggregateBySupplierName(lineEvaluations);
+supplierClassificationService.ApplyClassifications(supplierEvaluations);
 
 PrintSummary(tender, supplierEvaluations);
 
@@ -100,6 +102,7 @@ static void PrintSummary(Tender tender, IReadOnlyCollection<SupplierEvaluation> 
         Console.WriteLine($"  Line evaluations: {supplierEvaluation.LineEvaluations.Count}");
         Console.WriteLine($"  Manual review flags: {supplierEvaluation.ManualReviewFlags.Count}");
         Console.WriteLine($"  Scores: {FormatScoreBreakdown(supplierEvaluation.ScoreBreakdown)}");
+        Console.WriteLine($"  Classification: {FormatClassification(supplierEvaluation.Classification)}");
         Console.WriteLine();
     }
 }
@@ -134,4 +137,9 @@ static string FormatScore(decimal? score)
     return score.HasValue
         ? score.Value.ToString("0.##", CultureInfo.InvariantCulture)
         : "n/a";
+}
+
+static string FormatClassification(SupplierClassification? classification)
+{
+    return classification?.ToString() ?? "Unclassified";
 }

@@ -66,7 +66,8 @@ Implement the runnable skeleton from `{@artifacts_path}/spec.md`.
 - Prepare folders for `Models`, `Services`, `Import`, and `UI`.
 - Verify with `dotnet restore PackagingTenderTool.sln` and `dotnet build PackagingTenderTool.sln`.
 
-### [ ] Step: Add Initial Domain Models
+### [x] Step: Add Initial Domain Models
+<!-- chat-id: 85fc09f1-6e51-4f23-8654-657023e4fd88 -->
 
 Implement only the initial Labels profile v1 domain contracts described in `{@artifacts_path}/spec.md`.
 

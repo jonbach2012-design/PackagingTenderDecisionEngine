@@ -16,10 +16,10 @@ internal static class DemoSupplierDataProvider
 
         var suppliers = new List<SupplierEvaluation>
         {
-            CreateSupplier("NordPack Solutions", 184000m, 86m, 82m, 78m),
-            CreateSupplier("GreenWrap Nordic", 126500m, 66m, 63m, 58m),
-            CreateSupplier("FlexiForm Europe", 98200m, 72m, 64m, 86m, manualReviewFlags: 3),
-            CreateSupplier("ScanLabel Systems", 74250m, 40m, 45m, 38m)
+            CreateSupplier("NordPack Solutions", 3602870m, 83m, 78m, 72m),
+            CreateSupplier("GreenWrap Nordic", 2187932m, 69m, 70m, 64m),
+            CreateSupplier("FlexiForm Europe", 914500m, 76m, 61m, 82m, manualReviewFlags: 2),
+            CreateSupplier("ScanLabel Systems", 496900m, 48m, 52m, 44m)
         };
 
         var classifier = new SupplierClassificationService(

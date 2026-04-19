@@ -1,3 +1,4 @@
+using PackagingTenderTool.Core.Analytics;
 using PackagingTenderTool.Core.Import;
 using PackagingTenderTool.Core.Models;
 
@@ -9,13 +10,17 @@ public sealed class LabelsTenderEvaluationService
     private readonly LineEvaluationService lineEvaluationService;
     private readonly SupplierAggregationService supplierAggregationService;
     private readonly SupplierClassificationService supplierClassificationService;
+    private readonly LabelDataCleaningService dataCleaningService;
+    private readonly TenderAnalyticsService analyticsService;
 
     public LabelsTenderEvaluationService()
         : this(
             new LabelsExcelImportService(),
             new LineEvaluationService(),
             new SupplierAggregationService(),
-            new SupplierClassificationService())
+            new SupplierClassificationService(),
+            new LabelDataCleaningService(),
+            new TenderAnalyticsService())
     {
     }
 
@@ -23,12 +28,16 @@ public sealed class LabelsTenderEvaluationService
         LabelsExcelImportService importService,
         LineEvaluationService lineEvaluationService,
         SupplierAggregationService supplierAggregationService,
-        SupplierClassificationService supplierClassificationService)
+        SupplierClassificationService supplierClassificationService,
+        LabelDataCleaningService? dataCleaningService = null,
+        TenderAnalyticsService? analyticsService = null)
     {
         this.importService = importService;
         this.lineEvaluationService = lineEvaluationService;
         this.supplierAggregationService = supplierAggregationService;
         this.supplierClassificationService = supplierClassificationService;
+        this.dataCleaningService = dataCleaningService ?? new LabelDataCleaningService();
+        this.analyticsService = analyticsService ?? new TenderAnalyticsService();
     }
 
     public TenderEvaluationResult ImportAndEvaluate(
@@ -36,9 +45,9 @@ public sealed class LabelsTenderEvaluationService
         string tenderName,
         TenderSettings? tenderSettings = null)
     {
-        var tender = importService.ImportTender(filePath, tenderName, tenderSettings);
+        var importResult = importService.ImportTenderWithReport(filePath, tenderName, tenderSettings);
 
-        return Evaluate(tender);
+        return Evaluate(importResult);
     }
 
     public TenderEvaluationResult ImportAndEvaluate(
@@ -46,9 +55,9 @@ public sealed class LabelsTenderEvaluationService
         string tenderName,
         TenderSettings? tenderSettings = null)
     {
-        var tender = importService.ImportTender(excelStream, tenderName, tenderSettings);
+        var importResult = importService.ImportTenderWithReport(excelStream, tenderName, tenderSettings);
 
-        return Evaluate(tender);
+        return Evaluate(importResult);
     }
 
     public TenderEvaluationResult Evaluate(Tender tender)
@@ -64,11 +73,28 @@ public sealed class LabelsTenderEvaluationService
 
         supplierClassificationService.ApplyClassifications(supplierEvaluations);
 
+        var cleanedRows = dataCleaningService.CleanMany(tender.LabelLineItems).ToList();
+
         return new TenderEvaluationResult
         {
             Tender = tender,
             LineEvaluations = lineEvaluations,
-            SupplierEvaluations = supplierEvaluations
+            SupplierEvaluations = supplierEvaluations,
+            CleanedLineItems = cleanedRows,
+            Analytics = analyticsService.Analyze(cleanedRows)
         };
+    }
+
+    public TenderEvaluationResult Evaluate(LabelsTenderImportResult importResult)
+    {
+        ArgumentNullException.ThrowIfNull(importResult);
+
+        var result = Evaluate(importResult.Tender);
+        result.ImportSummary = importResult.Summary;
+        result.ImportIssues = importResult.Issues;
+        result.CleanedLineItems = importResult.CleanedRows;
+        result.Analytics = analyticsService.Analyze(importResult.CleanedRows);
+
+        return result;
     }
 }

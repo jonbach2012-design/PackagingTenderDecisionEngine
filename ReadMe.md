@@ -1,117 +1,86 @@
-> [!NOTE]
-> ## Bemærkning til underviser
-> Dette projekt er udviklet som en del af en læringsproces i C# og WinForms.  
-> Løsningen er bygget som en prototype med fokus på struktur, databehandling og beslutningsstøtte i forbindelse med evaluering af emballage-tenders.  
-> Den version, der ligger i repository nu, er den aktuelle version, som ønskes vurderet.
-
 # PackagingTenderTool
 
 ## Formål
+PackagingTenderTool er et prototypeprojekt til evaluering af leverandørtilbud inden for packaging tender-materiale.
 
-Dette projekt er udviklet som en prototype til evaluering af leverandørtilbud (tenders) inden for emballage med fokus på **labels**.
+Projektet er udviklet for at gøre tender-vurdering mere struktureret og mere genbrugelig end en ren Excel-baseret proces. 
+Fokus er på import, datavalidering, datarensning, analytics og et markant tydeligere beslutningsgrundlag.
 
-Formålet er at kunne:
+## Hvad løsningen kan nu
+Løsningen understøtter i dag:
 
-- importere data fra Excel
-- evaluere leverandører på flere parametre
-- beregne en samlet vægtet score
-- klassificere leverandører efter anbefaling
-- præsentere et samlet beslutningsgrundlag i en WinForms-brugerflade
+- import af tender-data fra Excel
+- validering af input og importrapportering
+- datarensning og normalisering
+- analyse af tender-data og spend
+- frontend-ready dashboard/view-model kontrakter
+- eksportretning via CSV for udvalgte outputs
+- automatiske tests af kernefunktionalitet
 
----
+## Arkitekturretning
+Projektet er flyttet væk fra tung WinForms-finpolering.
 
-## Funktionalitet
+Den nuværende WinForms-applikation fungerer som en midlertidig prototype og demonstrationsflade. Den egentlige værdi flyttes nu over i en mere genbrugelig arkitektur med fokus på:
 
-Applikationen kan:
+- **Core**
+- **Import**
+- **Analytics**
+- **frontend-ready view models**
 
-- importere tender-data fra Excel
-- håndtere forskellige talformater, fx `1,250.50` og `1.250,50`
-- evaluere leverandører inden for:
-  - Commercial
-  - Technical
-  - Regulatory
-- anvende regulatoriske vurderinger inspireret af **PPWR/EPR**
-- beregne samlet score baseret på vægtning
-- klassificere leverandører som:
-  - **Recommended**
-  - **Conditional**
-  - **Manual Review**
-- markere manglende eller ugyldige data via **Manual Review flags**
-- vise resultater i en grafisk brugerflade bygget i **WinForms**
+Retningen fremad er en fremtidig **Blazor-frontend med Radzen**, så brugerfladen kan bygges på en mere velegnet platform til data- og dashboardvisning.
 
----
+## Projektstruktur
+### `src/PackagingTenderTool.Core`
+Kerneprojektet indeholder:
+- domænemodeller
+- importlogik
+- validering
+- datarensning
+- analytics
+- dashboard/view-model kontrakter
 
-## Teknologier
+### `src/PackagingTenderTool.App`
+WinForms-applikationen bruges som midlertidig prototype til at demonstrere, at motoren virker.
 
-Projektet er udviklet med:
+### `tests/PackagingTenderTool.Core.Tests`
+Automatiske tests for kernefunktionalitet, import, rensning, analytics og frontend-ready kontrakter.
 
-- C#
-- .NET
-- Windows Forms (WinForms)
-- Excel-import
-- Git og GitHub til versionsstyring
+## Hvorfor retningen blev ændret
+WinForms var nyttig til hurtigt at få en prototype op at køre, men yderligere GUI-finjustering gav faldende værdi.
 
----
+Projektet er derfor bevidst drejet mod:
+- tydeligere separation of concerns
+- mere genbrugelig kode
+- stærkere datalag og analytics
+- forberedelse til Blazor + Radzen
 
-## Arkitektur
+Det gør løsningen mere velegnet til videreudvikling og bedre som programmeringsfagligt projekt.
 
-Projektet er opdelt i flere lag for at sikre struktur og genbrug:
+## Faglig relevans
+Projektet er relevant i programmeringsfaget, fordi det arbejder med:
 
-- **UI-lag**  
-  Håndterer brugerfladen i WinForms og viser resultaterne.
+- decomposition af et komplekst problem
+- separation of concerns
+- import og validering
+- datarensning og normalisering
+- analytics og beregningslogik
+- testbarhed
+- genbrugelige services og modeller
+- forberedelse til brug af eksterne frontend-biblioteker
 
-- **Application-lag**  
-  Styrer programflow og binder UI sammen med forretningslogikken.
+## Nuværende status
+Den aktuelle version i repository er den gældende version.
 
-- **Domain / Logic-lag**  
-  Indeholder regler for evaluering, scoring og klassificering.
-
-- **Infrastructure / Data-lag**  
-  Håndterer import og parsing af Excel-data.
-
-Denne opdeling gør løsningen mere overskuelig og lettere at videreudvikle.
-
----
-
-## Eksempel på vurderingsområder
-
-Ved evaluering af leverandører arbejdes der blandt andet med:
-
-- pris og kommercielle forhold
-- tekniske krav og specifikationer
-- regulatoriske forhold
-- datavalidering og håndtering af usikkerhed
-- samlet vægtet leverandørscore
-
----
-
-## Output
-
-Systemet leverer et samlet beslutningsgrundlag ved at:
-
-- vise scorer pr. leverandør
-- fremhæve dataproblemer
-- klassificere leverandører efter anbefalet status
-- understøtte hurtigere og mere ensartet tender-evaluering
-
----
-
-## Versionsstyring
-
-Projektet er versionsstyret med Git og GitHub.
-
-Repository dokumenterer udviklingsforløbet fra idé og strukturering til prototype og forbedringer undervejs.
-
----
+Status lige nu:
+- `main` er synkroniseret
+- build er grøn
+- tests er grønne
+- der er **56 automatiske tests**
+- næste dokumentationsskridt er opdatering af `plan.md` og `spec.md`
 
 ## Mulige videreudviklinger
-
-Projektet kan senere udvides med fx:
-
-- flere tender-typer end labels
-- mere avanceret vægtning og scoring
-- eksport af resultater til Excel eller PDF
-- visualiseringer og dashboards
-- integration til andre datakilder eller systemer
-
----
+- Blazor-frontend med Radzen
+- mere avanceret filtrering og drill-down
+- stærkere eksportfunktioner
+- tydeligere breakdowns pr. land, site, materiale og størrelse
+- videreudvikling af tender-logik og leverandørsammenligning

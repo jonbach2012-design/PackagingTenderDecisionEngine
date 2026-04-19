@@ -1,3 +1,6 @@
+using PackagingTenderTool.Core.Analytics;
+using PackagingTenderTool.Core.Import;
+
 namespace PackagingTenderTool.Core.Models;
 
 public sealed class TenderEvaluationResult
@@ -7,4 +10,12 @@ public sealed class TenderEvaluationResult
     public List<LineEvaluation> LineEvaluations { get; set; } = [];
 
     public List<SupplierEvaluation> SupplierEvaluations { get; set; } = [];
+
+    public LabelsImportSummary? ImportSummary { get; set; }
+
+    public List<LabelsImportIssue> ImportIssues { get; set; } = [];
+
+    public List<CleanedLabelLineItem> CleanedLineItems { get; set; } = [];
+
+    public TenderAnalyticsSummary? Analytics { get; set; }
 }

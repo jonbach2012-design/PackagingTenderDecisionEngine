@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using PackagingTenderTool.Core.Dashboard;
 using PackagingTenderTool.Core.Import;
 using PackagingTenderTool.Core.Models;
 using PackagingTenderTool.Core.Services;
@@ -26,6 +27,10 @@ internal sealed class MainForm : Form
     private readonly Label averageScoreInsightLabel = InsightValueLabel();
     private readonly Label reviewWorkloadInsightLabel = InsightValueLabel();
     private readonly Label comparedSpendInsightLabel = InsightValueLabel();
+    private readonly FlowLayoutPanel importAnalyticsMetricsPanel = new();
+    private readonly DataGridView spendBySiteGrid = new();
+    private readonly DataGridView spendByMaterialGrid = new();
+    private readonly DataGridView spendBySizeGrid = new();
     private readonly DataGridView resultsGrid = new();
     private readonly FlowLayoutPanel supplierCardsPanel = new();
     private readonly FlowLayoutPanel comparisonPanel = new();
@@ -212,11 +217,11 @@ internal sealed class MainForm : Form
     {
         var dashboard = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, ColumnCount = 1 };
         dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
-        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 250));
+        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 300));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 186));
         dashboard.Controls.Add(BuildInsightPanel(), 0, 0);
-        dashboard.Controls.Add(BuildChartsPanel(), 0, 1);
+        dashboard.Controls.Add(BuildAnalyticsPanel(), 0, 1);
         dashboard.Controls.Add(BuildSupplierCardsPanel(), 0, 2);
         dashboard.Controls.Add(BuildComparisonPanel(), 0, 3);
         return dashboard;
@@ -247,6 +252,47 @@ internal sealed class MainForm : Form
         charts.Controls.Add(ChartCard(totalScoreChart), 0, 0);
         charts.Controls.Add(ChartCard(dimensionChart), 1, 0);
         return charts;
+    }
+
+    private Control BuildAnalyticsPanel()
+    {
+        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, Margin = new Padding(0, 0, 0, 12) };
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 118));
+        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var metricsCard = Card();
+        metricsCard.Padding = new Padding(12, 8, 12, 8);
+        var metricsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, BackColor = AppTheme.CardBackground };
+        metricsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        metricsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        metricsLayout.Controls.Add(new Label
+        {
+            Text = "Import and analytics summary",
+            Dock = DockStyle.Fill,
+            Font = AppTheme.TitleFont(10F),
+            ForeColor = AppTheme.MainText,
+            AutoEllipsis = true
+        }, 0, 0);
+
+        importAnalyticsMetricsPanel.Dock = DockStyle.Fill;
+        importAnalyticsMetricsPanel.AutoScroll = true;
+        importAnalyticsMetricsPanel.WrapContents = true;
+        importAnalyticsMetricsPanel.FlowDirection = FlowDirection.LeftToRight;
+        importAnalyticsMetricsPanel.BackColor = AppTheme.CardBackground;
+        metricsLayout.Controls.Add(importAnalyticsMetricsPanel, 0, 1);
+        metricsCard.Controls.Add(metricsLayout);
+        panel.Controls.Add(metricsCard, 0, 0);
+
+        var breakdowns = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3 };
+        breakdowns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+        breakdowns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+        breakdowns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
+        breakdowns.Controls.Add(BreakdownCard("Spend by site", spendBySiteGrid), 0, 0);
+        breakdowns.Controls.Add(BreakdownCard("Spend by material", spendByMaterialGrid), 1, 0);
+        breakdowns.Controls.Add(BreakdownCard("Spend by label size", spendBySizeGrid), 2, 0);
+        panel.Controls.Add(breakdowns, 0, 1);
+
+        return panel;
     }
 
     private Control BuildSupplierCardsPanel()
@@ -608,6 +654,7 @@ internal sealed class MainForm : Form
         BuildSupplierCards();
         UpdateKpis(result, rows);
         UpdateInsights(rows);
+        UpdateAnalyticsPresentation(new TenderDashboardViewModelFactory().Create(result));
         UpdateHeader(string.IsNullOrWhiteSpace(result.Tender.Name) ? settings.TenderName : result.Tender.Name, SafeCurrency(result.Tender.Settings.CurrencyCode));
         UpdateChartsAndComparison();
         statusLabel.Text = string.IsNullOrWhiteSpace(statusText) ? "Dashboard updated." : statusText;
@@ -795,6 +842,22 @@ internal sealed class MainForm : Form
             : $"{manualReviewCount} supplier(s)";
 
         UpdateComparedSpendInsight(ComparedRows().ToList());
+    }
+
+    private void UpdateAnalyticsPresentation(TenderDashboardViewModel viewModel)
+    {
+        importAnalyticsMetricsPanel.SuspendLayout();
+        importAnalyticsMetricsPanel.Controls.Clear();
+        foreach (var metric in viewModel.ImportMetrics.Concat(viewModel.AnalyticsMetrics))
+        {
+            importAnalyticsMetricsPanel.Controls.Add(MetricPill(metric));
+        }
+
+        importAnalyticsMetricsPanel.ResumeLayout();
+
+        BindBreakdownGrid(spendBySiteGrid, viewModel.SpendBySite);
+        BindBreakdownGrid(spendByMaterialGrid, viewModel.SpendByMaterial);
+        BindBreakdownGrid(spendBySizeGrid, viewModel.SpendByLabelSize);
     }
 
     private void UpdateComparedSpendInsight(IReadOnlyCollection<SupplierResultRow> compared)
@@ -1017,10 +1080,22 @@ internal sealed class MainForm : Form
     private static string BuildResultSummary(TenderEvaluationResult result, string sourceName)
     {
         var supplierCount = result.SupplierEvaluations?.Count ?? 0;
-        var lineCount = result.LineEvaluations?.Count ?? result.Tender?.LabelLineItems?.Count ?? 0;
-        var flagCount = result.SupplierEvaluations?.Sum(supplier => supplier.ManualReviewFlags?.Count ?? 0) ?? 0;
-        var validation = flagCount == 0 ? "No manual review flags" : $"{flagCount} manual review flags";
-        return $"{sourceName} | Lines: {lineCount} | Suppliers: {supplierCount} | Validation: {validation}";
+        var lineCount = result.ImportSummary?.ImportedRows
+            ?? result.LineEvaluations?.Count
+            ?? result.Tender?.LabelLineItems?.Count
+            ?? 0;
+        var invalidRows = result.ImportSummary?.InvalidRows ?? 0;
+        var skippedRows = result.ImportSummary?.SkippedRows ?? 0;
+        var flagCount = result.ImportSummary?.ManualReviewFlagCount
+            ?? result.SupplierEvaluations?.Sum(supplier => supplier.ManualReviewFlags?.Count ?? 0)
+            ?? 0;
+        var spend = result.Analytics?.TotalSpend;
+        var validation = invalidRows == 0 && flagCount == 0
+            ? "No import validation issues"
+            : $"{invalidRows} invalid rows / {flagCount} flags";
+        var spendText = spend.HasValue ? $" | Spend: {spend.Value:N0}" : string.Empty;
+
+        return $"{sourceName} | Rows: {lineCount} | Suppliers: {supplierCount} | Skipped: {skippedRows} | {validation}{spendText}";
     }
 
     private void ResultsGrid_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
@@ -1139,6 +1214,122 @@ internal sealed class MainForm : Form
         card.Padding = new Padding(12);
         card.Controls.Add(chart);
         return card;
+    }
+
+    private static Control BreakdownCard(string title, DataGridView grid)
+    {
+        var card = Card();
+        card.Margin = new Padding(0, 0, 12, 0);
+        card.Padding = new Padding(12);
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, BackColor = AppTheme.CardBackground };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.Controls.Add(new Label
+        {
+            Text = title,
+            AutoSize = true,
+            Font = AppTheme.TitleFont(10F),
+            ForeColor = AppTheme.MainText,
+            Margin = new Padding(0, 0, 0, 8)
+        }, 0, 0);
+        ConfigureBreakdownGrid(grid);
+        layout.Controls.Add(grid, 0, 1);
+        card.Controls.Add(layout);
+        return card;
+    }
+
+    private static void ConfigureBreakdownGrid(DataGridView grid)
+    {
+        grid.Dock = DockStyle.Fill;
+        grid.AllowUserToAddRows = false;
+        grid.AllowUserToDeleteRows = false;
+        grid.AllowUserToResizeRows = false;
+        grid.AutoGenerateColumns = false;
+        grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        grid.BackgroundColor = AppTheme.CardBackground;
+        grid.BorderStyle = BorderStyle.None;
+        grid.ReadOnly = true;
+        grid.RowHeadersVisible = false;
+        grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        grid.MultiSelect = false;
+        grid.EnableHeadersVisualStyles = false;
+        grid.GridColor = AppTheme.CardBorder;
+        grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+        grid.ColumnHeadersHeight = 32;
+        grid.ColumnHeadersDefaultCellStyle.BackColor = AppTheme.PrimaryLight;
+        grid.ColumnHeadersDefaultCellStyle.ForeColor = AppTheme.MainText;
+        grid.ColumnHeadersDefaultCellStyle.Font = AppTheme.TitleFont(8.5F);
+        grid.DefaultCellStyle.Padding = new Padding(4, 1, 4, 1);
+        grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 251, 248);
+
+        grid.Columns.Clear();
+        grid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            DataPropertyName = nameof(DashboardSpendBreakdownRow.Name),
+            HeaderText = "Name",
+            FillWeight = 130
+        });
+        grid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            DataPropertyName = nameof(DashboardSpendBreakdownRow.Spend),
+            HeaderText = "Spend",
+            DefaultCellStyle = new DataGridViewCellStyle { Format = "N0" },
+            FillWeight = 80
+        });
+        grid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            DataPropertyName = nameof(DashboardSpendBreakdownRow.ItemCount),
+            HeaderText = "Items",
+            FillWeight = 50
+        });
+        grid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            DataPropertyName = nameof(DashboardSpendBreakdownRow.ShareOfTotal),
+            HeaderText = "%",
+            DefaultCellStyle = new DataGridViewCellStyle { Format = "N1" },
+            FillWeight = 50
+        });
+    }
+
+    private static Control MetricPill(DashboardMetric metric)
+    {
+        var panel = new TableLayoutPanel
+        {
+            Width = 122,
+            Height = 38,
+            RowCount = 2,
+            ColumnCount = 1,
+            Margin = new Padding(0, 0, 8, 8),
+            BackColor = AppTheme.PageBackground,
+            Padding = new Padding(8, 3, 8, 3)
+        };
+        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 48));
+        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 52));
+        panel.Controls.Add(new Label
+        {
+            Text = metric.Name,
+            Dock = DockStyle.Fill,
+            ForeColor = AppTheme.MutedText,
+            Font = AppTheme.BodyFont(7.8F),
+            AutoEllipsis = true
+        }, 0, 0);
+        panel.Controls.Add(new Label
+        {
+            Text = metric.Value,
+            Dock = DockStyle.Fill,
+            Font = AppTheme.TitleFont(9.2F),
+            ForeColor = AppTheme.MainText,
+            AutoEllipsis = true
+        }, 0, 1);
+        return panel;
+    }
+
+    private static void BindBreakdownGrid(DataGridView grid, IReadOnlyList<DashboardSpendBreakdownRow> rows)
+    {
+        grid.DataSource = rows
+            .OrderByDescending(row => row.Spend)
+            .Take(12)
+            .ToList();
     }
 
     private static Control InsightCard(string title, Label valueLabel)

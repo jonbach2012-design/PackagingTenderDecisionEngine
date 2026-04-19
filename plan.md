@@ -4,13 +4,22 @@
 
 The objective of PackagingTenderTool is to create a structured packaging tender evaluation tool that is easier to reuse, explain, and improve than a spreadsheet-only process.
 
+The solution should support a more systematic tender workflow through:
+- import of tender data
+- validation and data quality handling
+- cleaning and normalization
+- line-level and supplier-level evaluation
+- analytics and decision support
+- reusable output models for a future frontend
+
 Version 1 should establish:
 - a stable core domain model
 - a clear Labels packaging profile
 - line-level evaluation
 - supplier-level aggregation
 - manual review handling
-- a first usable scoring and ranking workflow
+- a usable scoring and ranking workflow
+- a reusable architecture that can later support a Blazor frontend with Radzen
 
 ---
 
@@ -21,15 +30,28 @@ The repository is now aligned to one local path and one Git repository.
 Confirmed repository setup:
 - local working path is the PackagingTenderTool repository
 - Git is connected and working
-- plan.md and spec.md are the current source documents
+- `main` is the active branch
+- build is green
+- tests are green
+- the solution currently contains 56 automated tests
 
-The project is still in early definition stage and does not yet contain full implementation code.
+Confirmed implementation status:
+- solution and project structure exist
+- core domain code exists
+- Excel import exists
+- validation and import reporting exist
+- data cleaning / normalization exist
+- analytics services exist
+- frontend-ready dashboard / view-model contracts exist
+- WinForms prototype exists as a temporary demo shell
+
+The project is therefore no longer in early definition only. It has moved into an implemented prototype stage with a stronger architecture direction.
 
 ---
 
 ## 3. Confirmed Product Direction
 
-The following decisions are now confirmed for version 1:
+The following decisions are confirmed for version 1:
 
 ### 3.1 Scope
 - version 1 handles one tender at a time
@@ -48,12 +70,12 @@ The following decisions are now confirmed for version 1:
 ### 3.4 Currency handling
 - one currency applies per tender
 - currency does not vary by line
-- default currency is EUR
-- tender setup may allow other currencies, such as NOK
+- default currency may be configured per tender
+- tender setup may allow currencies such as EUR or NOK
 
 ### 3.5 Data quality handling
 - missing or invalid data should trigger Manual Review
-- this applies broadly in version 1 if possible
+- this applies broadly in version 1 where practical
 - missing or invalid data should not automatically exclude a supplier in version 1
 
 ### 3.6 Scoring structure
@@ -84,7 +106,38 @@ Some regulatory criteria may later become knockout rules, but not in version 1.
 
 ---
 
-## 4. Remaining Open Decisions
+## 4. Strategic Direction Change
+
+The project is no longer prioritizing further heavy WinForms GUI polishing.
+
+### WinForms role now
+WinForms is retained only as:
+- a temporary prototype shell
+- a quick demonstration surface
+- a way to verify that the engine works
+
+### Future frontend direction
+The preferred future GUI direction is:
+- **Blazor**
+- **Radzen**
+
+Reason:
+- better fit for data-heavy applications
+- stronger component support for dashboards, tables, filters, and drill-down
+- less manual GUI fine-tuning than WinForms
+- clearer path toward enterprise-style presentation of analytics
+
+This means new development should primarily strengthen:
+- Core
+- Import
+- Analytics
+- frontend-ready view models
+- filtering
+- export-ready outputs
+
+---
+
+## 5. Remaining Open Decisions
 
 The following items are not yet fully defined:
 
@@ -95,206 +148,134 @@ The following items are not yet fully defined:
 - future exclusion / knockout rules
 - future plausibility checks for suspicious supplier inputs
 - possible use of Supplier ID through M3 integration
+- exact future Blazor screen composition and navigation flow
 
-These are important, but they do not need to block the first implementation skeleton.
-
----
-
-## 5. Implementation Strategy
-
-The recommended build order is:
-
-1. lock the current specification baseline
-2. create the core project structure
-3. create the domain model
-4. implement line-level evaluation
-5. implement supplier aggregation
-6. implement manual review handling
-7. test with hardcoded or sample data
-8. implement Excel import
-9. implement basic UI
-10. add visualization such as supplier breakdown and radar chart
-11. refine scoring logic
-12. add later enhancements
-
-This order reduces complexity and keeps architecture ahead of UI.
+These are important, but they should not block stable continued implementation.
 
 ---
 
-## 6. Phased Plan
+## 6. Architecture Direction
 
-## Phase 1 — Specification Baseline
-Goal:
-- establish a stable version 1 baseline for Labels
+The solution should continue to evolve with clear separation of concerns.
 
-Tasks:
-- confirm Labels as first packaging profile
-- confirm input columns
-- confirm tender-level currency handling
-- confirm line-to-supplier evaluation flow
-- confirm spend-weighted aggregation
-- confirm manual review direction
-- confirm 30/30/40 scoring model
-- document open decisions clearly
+### 6.1 Raw import data
+Raw data read directly from Excel.
 
-Status:
-- mostly completed
+### 6.2 Cleaned / normalized domain data
+Validated and normalized data that can safely be used for scoring and analytics.
 
----
+### 6.3 Analytics / summary results
+Aggregated outputs such as spend, breakdowns, outliers, flags, and candidate summaries.
 
-## Phase 2 — Project Skeleton
-Goal:
-- create the base project and technical structure
+### 6.4 Frontend-ready view models
+Reusable output models that can later be consumed by a Blazor/Radzen frontend.
 
-Tasks:
-- create the C# solution/project
-- establish folder structure
-- create initial domain classes
-- prepare separation between models, services, import, and UI
-
-Expected outcome:
-- a runnable empty skeleton with domain structure
+This architecture direction is preferred over expanding WinForms-specific logic.
 
 ---
 
-## Phase 3 — Domain Model
-Goal:
-- represent the tender model cleanly in code
+## 7. Implementation Strategy
 
-Candidate entities:
-- Tender
-- TenderSettings
-- PackagingProfile
-- LabelLineItem
-- Supplier
-- LineEvaluation
-- SupplierEvaluation
-- ScoreBreakdown
-- ManualReviewFlag
-- ClassificationResult
+The recommended implementation direction is now:
 
-Tasks:
-- define properties
-- define relationships
-- define basic enums/value objects where needed
+1. keep the current specification baseline
+2. continue strengthening the core domain and services
+3. improve import and validation reliability
+4. improve cleaning and normalization
+5. expand analytics and summary outputs
+6. create and refine frontend-ready view models
+7. add reusable filtering models
+8. support export of useful outputs
+9. keep WinForms only as a minimal verification shell
+10. prepare for a future Blazor + Radzen frontend
 
-Expected outcome:
-- a stable domain foundation for scoring and import
+This keeps architecture ahead of interface and avoids over-investment in the current temporary GUI.
 
 ---
 
-## Phase 4 — Scoring Engine v1
-Goal:
-- implement the first scoring logic
+## 8. Priority Areas
 
-Tasks:
-- implement Commercial score structure
-- implement placeholder Technical score structure
-- implement placeholder Regulatory score structure
-- implement weighted total score
-- implement line-level scoring
-- implement spend-weighted supplier aggregation
+### High priority
+1. **Import pipeline**
+   - reliable Excel import
+   - required-column validation
+   - datatype validation
+   - distinction between detail rows and summary rows
+   - clear import reporting
 
-Expected outcome:
-- first working evaluation engine without final advanced rules
+2. **Data cleaning / normalization**
+   - label size normalization
+   - material normalization
+   - color field normalization
+   - number / spend normalization
+   - conservative handling of inconsistent data
 
----
+3. **Analytics**
+   - spend by supplier
+   - spend by country
+   - spend by site
+   - spend by material
+   - spend by size
+   - top spend items
+   - outlier candidates
+   - consolidation / standardization candidates
+   - flags/issues summary
 
-## Phase 5 — Manual Review Engine v1
-Goal:
-- support safe handling of incomplete or invalid input
+4. **Frontend-ready view models**
+   - reusable output models for later UI consumption
 
-Tasks:
-- define manual review triggers
-- flag missing values
-- flag invalid values
-- collect review reasons
-- expose review status in results
+5. **Filtering model**
+   Support filters such as:
+   - supplier
+   - country
+   - site
+   - material
+   - size
+   - flagged only
+   - outliers only
 
-Expected outcome:
-- non-blocking review behavior in line with version 1 direction
-
----
-
-## Phase 6 — Sample Data Testing
-Goal:
-- validate architecture and scoring behavior early
-
-Tasks:
-- create sample Labels tender data
-- test scoring flow
-- test aggregation flow
-- test manual review behavior
-- test supplier grouping by Supplier name
-
-Expected outcome:
-- confidence that core model works before Excel import/UI work expands complexity
-
----
-
-## Phase 7 — Excel Import
-Goal:
-- import Labels tender data from Excel
-
-Tasks:
-- map required columns
-- validate presence of required columns
-- parse rows into LabelLineItem objects
-- trigger Manual Review on invalid or missing input
-
-Expected outcome:
-- first end-to-end input pipeline from Excel into domain model
+6. **Export**
+   - cleaned data
+   - analytics summary
+   - flags/issues report
 
 ---
 
-## Phase 8 — Basic UI
-Goal:
-- provide a usable interface for version 1
+## 9. Planned Data Surfaces / Future Screens
 
-Suggested areas:
-- Tender setup
-- Excel import and validation
-- Supplier ranking
-- Supplier detail view
+The following surfaces should form the basis for a later Blazor/Radzen frontend:
 
-Expected outcome:
-- a minimal but understandable working prototype
+- Import summary
+- Supplier overview
+- Country breakdown
+- Site breakdown
+- Material breakdown
+- Item/detail table
+- Flags/issues table
 
----
-
-## Phase 9 — Visualization
-Goal:
-- provide simple decision-support visuals
-
-Tasks:
-- supplier ranking table
-- dimension score breakdown
-- manual review visibility
-- radar chart or similar overview
-
-Expected outcome:
-- clearer comparison between suppliers
+These should be supported by reusable models and services, not hidden inside WinForms code.
 
 ---
 
-## Phase 10 — Refinement
-Goal:
-- improve realism after first prototype is stable
+## 10. Demo Data Direction
 
-Possible refinement topics:
-- material scoring logic
-- threshold logic
-- classification outcomes
-- plausibility checks
-- future exclusion rules
-- M3 supplier ID integration
-- additional packaging profiles
+If more suppliers are needed for demonstration purposes, synthetic suppliers may be used.
+
+Naming:
+- `Fiktiv1`
+- `Fiktiv2`
+- `Fiktiv3`
+
+Rules:
+- they must be clearly synthetic
+- they must be based on realistic transformations of imported tender data
+- they should not be random or detached from real data patterns
 
 ---
 
-## 7. Working Principles
+## 11. Working Principles
 
-The project should follow these principles:
+The project should continue to follow these principles:
 
 - start small and stable
 - architecture before interface
@@ -302,53 +283,51 @@ The project should follow these principles:
 - manual review before automatic exclusion
 - extensibility for future profiles
 - clear business explanation for each scoring dimension
+- reusable services before UI-specific implementation
+- frontend preparation should not pollute domain logic
 
-This is especially important because the tool must be understandable not only technically, but also commercially and operationally.
-
----
-
-## 8. Immediate Next Step
-
-The next practical step is:
-
-- update spec.md and plan.md in the repository
-- commit the updated baseline
-- create the project skeleton
-- begin the domain model
-
-Suggested first implementation focus:
-- Tender
-- TenderSettings
-- LabelLineItem
-- LineEvaluation
-- SupplierEvaluation
-- ScoreBreakdown
-- ManualReviewFlag
+This remains important because the tool must be understandable not only technically, but also commercially and operationally.
 
 ---
 
-## 9. Suggested Commit Sequence
+## 12. Immediate Next Step
 
-A sensible near-term Git sequence could be:
+The next documentation and planning step is:
 
-1. refine specification baseline
-2. create project skeleton
-3. add core domain models
-4. add first scoring engine
-5. add manual review handling
-6. add sample data tests
-7. add Excel import
-8. add UI foundation
+- update `spec.md` so it matches the current implemented and architectural direction
+
+The next implementation focus should continue around:
+- import robustness
+- cleaning / normalization
+- analytics outputs
+- frontend-ready models
+- filtering
+- export readiness
+
+---
+
+## 13. Suggested Commit / Development Sequence
+
+A sensible next sequence is:
+
+1. refine plan and specification alignment
+2. strengthen import and validation rules
+3. strengthen cleaning and normalization
+4. expand analytics outputs
+5. introduce or refine filtering model
+6. improve export-ready outputs
+7. keep WinForms verification minimal
+8. prepare future Blazor/Radzen frontend work
 
 This gives a clean history and makes the process easier to explain later.
 
 ---
 
-## 10. Summary
+## 14. Summary
 
-PackagingTenderTool is now ready to move from definition into structured implementation.
+PackagingTenderTool has moved from definition into implemented prototype form.
 
-The most important baseline decisions for Labels version 1 are now set:
+The most important version 1 baseline decisions for Labels remain:
 - one tender
 - one packaging profile
 - line-level scoring
@@ -357,4 +336,8 @@ The most important baseline decisions for Labels version 1 are now set:
 - 30/30/40 dimension model
 - regulatory weighted highest because compliance risk affects both supplier and buyer
 
-The next step is to turn this into a project skeleton and start the domain model.
+At the same time, the project direction has evolved:
+- WinForms is now only a temporary prototype shell
+- the core value is moving into reusable architecture
+- the future frontend direction is Blazor + Radzen
+- development should prioritize import, cleaning, analytics, filters, export, and frontend-ready models over GUI cosmetics

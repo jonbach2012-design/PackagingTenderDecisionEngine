@@ -7,18 +7,23 @@ namespace PackagingTenderTool.Core.Import;
 
 public sealed class LabelsExcelImportService
 {
+    private static readonly string[] RequiredColumns =
+    [
+        nameof(LabelLineItem.ItemNo)
+    ];
+
     private static readonly IReadOnlyDictionary<string, string[]> ColumnAliases =
         new Dictionary<string, string[]>
         {
             [nameof(LabelLineItem.ItemNo)] = ["Item no", "Item no.", "Item number"],
             [nameof(LabelLineItem.ItemName)] = ["Item name", "Item"],
             [nameof(LabelLineItem.SupplierName)] = ["Supplier name", "Supplier"],
-            [nameof(LabelLineItem.Site)] = ["Site"],
+            [nameof(LabelLineItem.Site)] = ["Site", "DSH Site"],
             [nameof(LabelLineItem.Quantity)] = ["Quantity", "Qty"],
-            [nameof(LabelLineItem.Spend)] = ["Spend"],
+            [nameof(LabelLineItem.Spend)] = ["Spend", "Spend (NOK)", "Spend NOK"],
             [nameof(LabelLineItem.PricePerThousand)] = ["Price per 1,000", "Price per 1000", "Price/1000"],
-            [nameof(LabelLineItem.Price)] = ["Price"],
-            [nameof(LabelLineItem.TheoreticalSpend)] = ["Theoretical spend"],
+            [nameof(LabelLineItem.Price)] = ["Price", "Price (DKK)", "Price DKK"],
+            [nameof(LabelLineItem.TheoreticalSpend)] = ["Theoretical spend", "Theoretical spend (NOK)", "Theoretical spend NOK"],
             [nameof(LabelLineItem.LabelSize)] = ["Label size"],
             [nameof(LabelLineItem.WindingDirection)] = ["Winding direction"],
             [nameof(LabelLineItem.Material)] = ["Material"],
@@ -39,9 +44,7 @@ public sealed class LabelsExcelImportService
         string tenderName = "Imported Labels Tender",
         TenderSettings? settings = null)
     {
-        using var stream = File.OpenRead(filePath);
-
-        return ImportTender(stream, tenderName, settings);
+        return ImportTenderWithReport(filePath, tenderName, settings).Tender;
     }
 
     public Tender ImportTender(
@@ -49,23 +52,44 @@ public sealed class LabelsExcelImportService
         string tenderName = "Imported Labels Tender",
         TenderSettings? settings = null)
     {
+        return ImportTenderWithReport(excelStream, tenderName, settings).Tender;
+    }
+
+    public LabelsTenderImportResult ImportTenderWithReport(
+        string filePath,
+        string tenderName = "Imported Labels Tender",
+        TenderSettings? settings = null)
+    {
+        using var stream = File.OpenRead(filePath);
+
+        return ImportTenderWithReport(stream, tenderName, settings);
+    }
+
+    public LabelsTenderImportResult ImportTenderWithReport(
+        Stream excelStream,
+        string tenderName = "Imported Labels Tender",
+        TenderSettings? settings = null)
+    {
         ArgumentNullException.ThrowIfNull(excelStream);
 
+        var importResult = ImportLineItemsWithReport(excelStream);
         var tender = new Tender
         {
             Name = tenderName,
-            Settings = settings ?? new TenderSettings()
+            Settings = settings ?? new TenderSettings(),
+            LabelLineItems = importResult.Tender.LabelLineItems
         };
+        importResult.Tender = tender;
 
-        foreach (var lineItem in ImportLineItems(excelStream))
-        {
-            tender.LabelLineItems.Add(lineItem);
-        }
-
-        return tender;
+        return importResult;
     }
 
     public IReadOnlyList<LabelLineItem> ImportLineItems(Stream excelStream)
+    {
+        return ImportLineItemsWithReport(excelStream).Tender.LabelLineItems;
+    }
+
+    public LabelsTenderImportResult ImportLineItemsWithReport(Stream excelStream)
     {
         ArgumentNullException.ThrowIfNull(excelStream);
 
@@ -73,15 +97,80 @@ public sealed class LabelsExcelImportService
         var worksheet = workbook.Worksheets.FirstOrDefault()
             ?? throw new InvalidOperationException("The Excel workbook does not contain a worksheet.");
 
-        var headerRow = worksheet.FirstRowUsed()
-            ?? throw new InvalidOperationException("The Excel worksheet does not contain a header row.");
+        var headerRow = FindHeaderRow(worksheet)
+            ?? throw new InvalidOperationException("The Excel worksheet does not contain a recognizable Labels tender header row.");
         var columnMap = BuildColumnMap(headerRow);
+        ValidateRequiredColumns(columnMap);
+        var lineItems = new List<LabelLineItem>();
+        var rawRows = new List<RawLabelTenderRow>();
+        var issues = new List<LabelsImportIssue>();
+        var scannedRows = 0;
+        var skippedRows = 0;
 
-        return worksheet.RowsUsed()
-            .Where(row => row.RowNumber() > headerRow.RowNumber())
-            .Where(RowHasAnyContent)
-            .Select(row => MapRow(row, columnMap))
-            .ToList();
+        foreach (var row in worksheet.RowsUsed().Where(row => row.RowNumber() > headerRow.RowNumber()))
+        {
+            if (!RowHasAnyContent(row))
+            {
+                continue;
+            }
+
+            scannedRows++;
+            var rawRow = MapRawRow(row, columnMap);
+            if (ShouldSkipRow(rawRow))
+            {
+                skippedRows++;
+                issues.Add(new LabelsImportIssue
+                {
+                    RowNumber = row.RowNumber(),
+                    FieldName = "Row",
+                    Message = "Skipped row because it did not look like a detailed tender item row.",
+                    Severity = LabelsImportIssueSeverity.Info
+                });
+                continue;
+            }
+
+            var lineItem = MapRow(row, columnMap);
+            rawRows.Add(rawRow);
+            AddRowIssues(row.RowNumber(), lineItem, issues);
+            lineItems.Add(lineItem);
+        }
+
+        var cleanedRows = new PackagingTenderTool.Core.Services.LabelDataCleaningService().CleanMany(lineItems).ToList();
+        var invalidRows = lineItems.Count(lineItem => lineItem.SourceManualReviewFlags.Count > 0);
+        var rowsWithSpend = lineItems.Where(lineItem => lineItem.Spend is > 0).ToList();
+
+        return new LabelsTenderImportResult
+        {
+            Tender = new Tender { LabelLineItems = lineItems },
+            RawRows = rawRows,
+            CleanedRows = cleanedRows,
+            Issues = issues,
+            Summary = new LabelsImportSummary
+            {
+                WorksheetName = worksheet.Name,
+                HeaderRowNumber = headerRow.RowNumber(),
+                TotalRowsScanned = scannedRows,
+                ImportedRows = lineItems.Count,
+                ValidRows = lineItems.Count - invalidRows,
+                InvalidRows = invalidRows,
+                SkippedRows = skippedRows,
+                ManualReviewFlagCount = lineItems.Sum(lineItem => lineItem.SourceManualReviewFlags.Count),
+                SupplierCount = DistinctCount(lineItems.Select(lineItem => lineItem.SupplierName)),
+                SiteCount = DistinctCount(lineItems.Select(lineItem => lineItem.Site)),
+                SizeCount = DistinctCount(cleanedRows.Select(row => row.NormalizedLabelSize)),
+                MaterialCount = DistinctCount(cleanedRows.Select(row => row.NormalizedMaterial)),
+                TotalSpend = rowsWithSpend.Sum(lineItem => lineItem.Spend!.Value)
+            }
+        };
+    }
+
+    private static int DistinctCount(IEnumerable<string?> values)
+    {
+        return values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
     }
 
     private static IReadOnlyDictionary<string, int> BuildColumnMap(IXLRow headerRow)
@@ -107,6 +196,112 @@ public sealed class LabelsExcelImportService
         }
 
         return columnMap;
+    }
+
+    private static IXLRow? FindHeaderRow(IXLWorksheet worksheet)
+    {
+        return worksheet.RowsUsed()
+            .Select(row => new
+            {
+                Row = row,
+                ColumnMap = BuildColumnMap(row)
+            })
+            .OrderByDescending(candidate => candidate.ColumnMap.Count)
+            .FirstOrDefault(candidate => candidate.ColumnMap.ContainsKey(nameof(LabelLineItem.ItemNo)))?
+            .Row;
+    }
+
+    private static void ValidateRequiredColumns(IReadOnlyDictionary<string, int> columnMap)
+    {
+        var missingColumns = RequiredColumns
+            .Where(column => !columnMap.ContainsKey(column))
+            .ToList();
+        if (missingColumns.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"The Labels tender worksheet is missing required columns: {string.Join(", ", missingColumns)}.");
+        }
+    }
+
+    private static RawLabelTenderRow MapRawRow(IXLRow row, IReadOnlyDictionary<string, int> columnMap)
+    {
+        return new RawLabelTenderRow
+        {
+            RowNumber = row.RowNumber(),
+            ItemNo = GetString(row, columnMap, nameof(LabelLineItem.ItemNo)),
+            ItemName = GetString(row, columnMap, nameof(LabelLineItem.ItemName)),
+            SupplierName = GetString(row, columnMap, nameof(LabelLineItem.SupplierName)),
+            Site = GetString(row, columnMap, nameof(LabelLineItem.Site)),
+            Quantity = GetRawString(row, columnMap, nameof(LabelLineItem.Quantity)),
+            Spend = GetRawString(row, columnMap, nameof(LabelLineItem.Spend)),
+            PricePerThousand = GetRawString(row, columnMap, nameof(LabelLineItem.PricePerThousand)),
+            Price = GetRawString(row, columnMap, nameof(LabelLineItem.Price)),
+            TheoreticalSpend = GetRawString(row, columnMap, nameof(LabelLineItem.TheoreticalSpend)),
+            LabelSize = GetString(row, columnMap, nameof(LabelLineItem.LabelSize)),
+            WindingDirection = GetString(row, columnMap, nameof(LabelLineItem.WindingDirection)),
+            Material = GetString(row, columnMap, nameof(LabelLineItem.Material)),
+            ReelDiameterOrPcsPerRoll = GetString(row, columnMap, nameof(LabelLineItem.ReelDiameterOrPcsPerRoll)),
+            NumberOfColors = GetRawString(row, columnMap, nameof(LabelLineItem.NumberOfColors)),
+            Comment = GetString(row, columnMap, nameof(LabelLineItem.Comment))
+        };
+    }
+
+    private static bool ShouldSkipRow(RawLabelTenderRow rawRow)
+    {
+        var hasItemIdentity = !string.IsNullOrWhiteSpace(rawRow.ItemNo)
+            || !string.IsNullOrWhiteSpace(rawRow.ItemName);
+        if (rawRow.ItemNo?.Contains("summary", StringComparison.OrdinalIgnoreCase) == true
+            || rawRow.ItemNo?.Contains("total", StringComparison.OrdinalIgnoreCase) == true
+            || rawRow.ItemName?.Contains("summary", StringComparison.OrdinalIgnoreCase) == true
+            || rawRow.ItemName?.Contains("total", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        return !hasItemIdentity;
+    }
+
+    private static void AddRowIssues(int rowNumber, LabelLineItem lineItem, ICollection<LabelsImportIssue> issues)
+    {
+        foreach (var flag in lineItem.SourceManualReviewFlags)
+        {
+            issues.Add(new LabelsImportIssue
+            {
+                RowNumber = rowNumber,
+                FieldName = flag.FieldName ?? "Source",
+                Message = flag.Reason,
+                SourceValue = flag.SourceValue,
+                Severity = flag.Severity == ManualReviewSeverity.Error
+                    ? LabelsImportIssueSeverity.Error
+                    : LabelsImportIssueSeverity.Warning
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(lineItem.ItemNo))
+        {
+            issues.Add(MissingRequiredValue(rowNumber, nameof(LabelLineItem.ItemNo)));
+        }
+
+        if (string.IsNullOrWhiteSpace(lineItem.SupplierName))
+        {
+            issues.Add(MissingRequiredValue(rowNumber, nameof(LabelLineItem.SupplierName)));
+        }
+
+        if (lineItem.Spend is null)
+        {
+            issues.Add(MissingRequiredValue(rowNumber, nameof(LabelLineItem.Spend)));
+        }
+    }
+
+    private static LabelsImportIssue MissingRequiredValue(int rowNumber, string fieldName)
+    {
+        return new LabelsImportIssue
+        {
+            RowNumber = rowNumber,
+            FieldName = fieldName,
+            Message = "Required value is missing from a detailed tender row.",
+            Severity = LabelsImportIssueSeverity.Warning
+        };
     }
 
     private static LabelLineItem MapRow(IXLRow row, IReadOnlyDictionary<string, int> columnMap)
@@ -209,6 +404,21 @@ public sealed class LabelsExcelImportService
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
+    private static string? GetRawString(
+        IXLRow row,
+        IReadOnlyDictionary<string, int> columnMap,
+        string propertyName)
+    {
+        if (!columnMap.TryGetValue(propertyName, out var columnNumber))
+        {
+            return null;
+        }
+
+        var value = row.Cell(columnNumber).GetFormattedString().Trim();
+
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
     private static decimal? GetDecimal(
         IXLRow row,
         IReadOnlyDictionary<string, int> columnMap,
@@ -227,16 +437,16 @@ public sealed class LabelsExcelImportService
             return null;
         }
 
-        if (cell.DataType == XLDataType.Number
-            && cell.TryGetValue<decimal>(out var numericValue))
-        {
-            return numericValue;
-        }
-
         var sourceValue = cell.GetFormattedString().Trim();
         if (TryParseDecimal(sourceValue, out var parsedValue))
         {
             return parsedValue;
+        }
+
+        if (cell.DataType == XLDataType.Number
+            && cell.TryGetValue<decimal>(out var numericValue))
+        {
+            return numericValue;
         }
 
         AddInvalidNumericFlag(manualReviewFlags, fieldName, sourceValue, "Imported numeric value could not be parsed.");
@@ -378,6 +588,12 @@ public sealed class LabelsExcelImportService
             .Trim()
             .Replace(" ", string.Empty)
             .Replace("\u00A0", string.Empty);
+        value = new string(value
+            .Where(character => char.IsDigit(character)
+                || character == ','
+                || character == '.'
+                || character == '-')
+            .ToArray());
         if (string.IsNullOrWhiteSpace(value))
         {
             return null;
@@ -395,7 +611,20 @@ public sealed class LabelsExcelImportService
 
         if (lastCommaIndex >= 0)
         {
+            if (value.Count(character => character == ',') > 1
+                || value.Length - lastCommaIndex - 1 == 3)
+            {
+                return value.Replace(",", string.Empty);
+            }
+
             return value.Replace(',', '.');
+        }
+
+        if (lastDotIndex >= 0
+            && (value.Count(character => character == '.') > 1
+                || value.Length - lastDotIndex - 1 == 3))
+        {
+            return value.Replace(".", string.Empty);
         }
 
         return value;

@@ -22,6 +22,10 @@ internal sealed class MainForm : Form
     private readonly Label importStatusLabel = new();
     private readonly Label importSummaryLabel = new();
     private readonly ProgressBar importProgressBar = new();
+    private readonly Label leadSupplierInsightLabel = InsightValueLabel();
+    private readonly Label averageScoreInsightLabel = InsightValueLabel();
+    private readonly Label reviewWorkloadInsightLabel = InsightValueLabel();
+    private readonly Label comparedSpendInsightLabel = InsightValueLabel();
     private readonly DataGridView resultsGrid = new();
     private readonly FlowLayoutPanel supplierCardsPanel = new();
     private readonly FlowLayoutPanel comparisonPanel = new();
@@ -206,14 +210,31 @@ internal sealed class MainForm : Form
 
     private Control BuildDashboardView()
     {
-        var dashboard = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
-        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 262));
+        var dashboard = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, ColumnCount = 1 };
+        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
+        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 250));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 186));
-        dashboard.Controls.Add(BuildChartsPanel(), 0, 0);
-        dashboard.Controls.Add(BuildSupplierCardsPanel(), 0, 1);
-        dashboard.Controls.Add(BuildComparisonPanel(), 0, 2);
+        dashboard.Controls.Add(BuildInsightPanel(), 0, 0);
+        dashboard.Controls.Add(BuildChartsPanel(), 0, 1);
+        dashboard.Controls.Add(BuildSupplierCardsPanel(), 0, 2);
+        dashboard.Controls.Add(BuildComparisonPanel(), 0, 3);
         return dashboard;
+    }
+
+    private Control BuildInsightPanel()
+    {
+        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, Margin = new Padding(0, 0, 0, 12) };
+        for (var index = 0; index < 4; index++)
+        {
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        }
+
+        panel.Controls.Add(InsightCard("Lead supplier", leadSupplierInsightLabel), 0, 0);
+        panel.Controls.Add(InsightCard("Average total score", averageScoreInsightLabel), 1, 0);
+        panel.Controls.Add(InsightCard("Review workload", reviewWorkloadInsightLabel), 2, 0);
+        panel.Controls.Add(InsightCard("Compared spend", comparedSpendInsightLabel), 3, 0);
+        return panel;
     }
 
     private Control BuildChartsPanel()
@@ -586,6 +607,7 @@ internal sealed class MainForm : Form
 
         BuildSupplierCards();
         UpdateKpis(result, rows);
+        UpdateInsights(rows);
         UpdateHeader(string.IsNullOrWhiteSpace(result.Tender.Name) ? settings.TenderName : result.Tender.Name, SafeCurrency(result.Tender.Settings.CurrencyCode));
         UpdateChartsAndComparison();
         statusLabel.Text = string.IsNullOrWhiteSpace(statusText) ? "Dashboard updated." : statusText;
@@ -664,6 +686,7 @@ internal sealed class MainForm : Form
         totalScoreChart.SetRows(currentRows.ToList());
         dimensionChart.SetRows(compared.Count >= 2 ? compared : currentRows.ToList());
         BuildComparisonCards(compared);
+        UpdateComparedSpendInsight(compared);
     }
 
     private void BuildComparisonCards(IReadOnlyList<SupplierResultRow> compared)
@@ -743,6 +766,48 @@ internal sealed class MainForm : Form
         {
             label.Text = value;
         }
+    }
+
+    private void UpdateInsights(IReadOnlyCollection<SupplierResultRow> rows)
+    {
+        if (rows.Count == 0)
+        {
+            leadSupplierInsightLabel.Text = "-";
+            averageScoreInsightLabel.Text = "-";
+            reviewWorkloadInsightLabel.Text = "No results";
+            comparedSpendInsightLabel.Text = "-";
+            return;
+        }
+
+        var leadSupplier = rows.MaxBy(row => row.TotalScore ?? -1);
+        leadSupplierInsightLabel.Text = leadSupplier is null
+            ? "-"
+            : $"{leadSupplier.SupplierName} ({leadSupplier.TotalScoreDisplay})";
+
+        var scoredRows = rows.Where(row => row.TotalScore.HasValue).ToList();
+        averageScoreInsightLabel.Text = scoredRows.Count == 0
+            ? "-"
+            : scoredRows.Average(row => row.TotalScore!.Value).ToString("N1", CultureInfo.CurrentCulture);
+
+        var manualReviewCount = rows.Count(row => row.Classification == SupplierClassification.ManualReview || row.ManualReviewFlagCount > 0);
+        reviewWorkloadInsightLabel.Text = manualReviewCount == 0
+            ? "No manual review"
+            : $"{manualReviewCount} supplier(s)";
+
+        UpdateComparedSpendInsight(ComparedRows().ToList());
+    }
+
+    private void UpdateComparedSpendInsight(IReadOnlyCollection<SupplierResultRow> compared)
+    {
+        if (compared.Count < 2)
+        {
+            comparedSpendInsightLabel.Text = "Select 2+";
+            return;
+        }
+
+        var spend = compared.Sum(row => row.TotalSpend);
+        var currency = compared.FirstOrDefault()?.CurrencyCode ?? settings.CurrencyCode;
+        comparedSpendInsightLabel.Text = $"{spend:N0} {currency}";
     }
 
     private void UpdateHeader(string tenderName, string currencyCode)
@@ -1074,6 +1139,40 @@ internal sealed class MainForm : Form
         card.Padding = new Padding(12);
         card.Controls.Add(chart);
         return card;
+    }
+
+    private static Control InsightCard(string title, Label valueLabel)
+    {
+        var card = Card();
+        card.Margin = new Padding(0, 0, 10, 0);
+        card.Padding = new Padding(12, 8, 12, 8);
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, BackColor = AppTheme.CardBackground };
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
+        layout.Controls.Add(new Label
+        {
+            Text = title,
+            Dock = DockStyle.Fill,
+            ForeColor = AppTheme.MutedText,
+            TextAlign = ContentAlignment.BottomLeft,
+            AutoEllipsis = true
+        }, 0, 0);
+        layout.Controls.Add(valueLabel, 0, 1);
+        card.Controls.Add(layout);
+        return card;
+    }
+
+    private static Label InsightValueLabel()
+    {
+        return new Label
+        {
+            Text = "-",
+            Dock = DockStyle.Fill,
+            Font = AppTheme.TitleFont(10.5F),
+            ForeColor = AppTheme.MainText,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true
+        };
     }
 
     private static Color KpiAccentColor(string key)

@@ -23,24 +23,21 @@ public sealed class LabelsTenderEvaluationServiceTests
                 ExpectedTraceability = true
             }
         };
-        tender.LabelLineItems.Add(new LabelLineItem
-        {
-            SupplierName = "Acme Labels",
-            Spend = 100m,
-            PricePerThousand = 10m,
-            Material = "PP white",
-            WindingDirection = "Left",
-            LabelSize = "80x120",
-            LabelWeightGrams = 1.5m,
-            IsMonoMaterial = true,
-            IsEasyToSeparate = true,
-            IsReusableOrRecyclableMaterial = true,
-            HasTraceability = true,
-            EprSchemes =
-            [
-                new EprSchemeInfo { CountryCode = "DK", Category = "Labels" }
-            ]
-        });
+        var lineItem = TestDataFactory.CreateValidLabelLineItem(
+            supplierName: "Acme Labels",
+            spend: 100m,
+            pricePerThousand: 10m,
+            countryCode: "DK",
+            category: "Labels",
+            labelWeightGrams: 1.5m);
+        lineItem.Material = "PP white";
+        lineItem.WindingDirection = "Left";
+        lineItem.LabelSize = "80x120";
+        lineItem.IsMonoMaterial = true;
+        lineItem.IsEasyToSeparate = true;
+        lineItem.IsReusableOrRecyclableMaterial = true;
+        lineItem.HasTraceability = true;
+        tender.LabelLineItems.Add(lineItem);
 
         var result = new LabelsTenderEvaluationService().Evaluate(tender);
         var supplierEvaluation = result.SupplierEvaluations.Single();

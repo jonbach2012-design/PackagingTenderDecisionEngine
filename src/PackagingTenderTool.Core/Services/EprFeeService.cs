@@ -1,24 +1,14 @@
 using PackagingTenderTool.Core.Models;
+using System.Text.Json;
 
 namespace PackagingTenderTool.Core.Services;
 
 public sealed class EprFeeService : IEprFeeService
 {
-    public static readonly IReadOnlyList<string> SupportedCountries = ["DK", "SE", "NO", "FI", "IE"];
-
-    public static readonly IReadOnlyList<string> CoreCategories =
-    [
-        "Labels",
-        "Cardboard",
-        "Trays",
-        "Packaging Mixed",
-        "Flexibles"
-    ];
-
     private readonly IReadOnlyList<EprRate> rates;
 
     public EprFeeService()
-        : this(CreatePlaceholderRates())
+        : this(LoadRatesFromDefaultJsonOrFallback())
     {
     }
 
@@ -122,12 +112,71 @@ public sealed class EprFeeService : IEprFeeService
             : trimmed;
     }
 
+    private static IReadOnlyList<EprRate> LoadRatesFromDefaultJsonOrFallback()
+    {
+        try
+        {
+            var path = FindSettingsFilePath("epr-settings.json");
+            if (path is null)
+            {
+                return CreatePlaceholderRates();
+            }
+
+            var json = File.ReadAllText(path);
+            var settings = JsonSerializer.Deserialize<EprSettings>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (settings?.Rates is null || settings.Rates.Count == 0)
+            {
+                return CreatePlaceholderRates();
+            }
+
+            return settings.Rates
+                .Where(rate => !string.IsNullOrWhiteSpace(rate.CountryCode) && !string.IsNullOrWhiteSpace(rate.Category))
+                .Select(rate => new EprRate
+                {
+                    CountryCode = rate.CountryCode.Trim().ToUpperInvariant(),
+                    Category = rate.Category.Trim(),
+                    RatePerKg = rate.RatePerKg
+                })
+                .ToList();
+        }
+        catch
+        {
+            // Robust default: never block evaluation because config is missing/broken.
+            return CreatePlaceholderRates();
+        }
+    }
+
+    private static string? FindSettingsFilePath(string fileName)
+    {
+        // Probe upward from the current base directory (works for App + Tests without csproj copying).
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var depth = 0; depth < 6 && current is not null; depth++)
+        {
+            var candidate = Path.Combine(current.FullName, fileName);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
+    }
+
     private static IReadOnlyList<EprRate> CreatePlaceholderRates()
     {
         // Placeholder values only. Replace with Scandi Standard data later.
         const decimal low = 0.10m;
         const decimal mid = 0.50m;
         const decimal high = 1.20m;
+
+        var supportedCountries = new[] { "DK", "SE", "NO", "FI", "IE" };
+        var coreCategories = new[] { "Labels", "Cardboard", "Trays", "Packaging Mixed", "Flexibles" };
 
         decimal RateForCategory(string category) => category switch
         {
@@ -139,14 +188,28 @@ public sealed class EprFeeService : IEprFeeService
             _ => mid
         };
 
-        return SupportedCountries
-            .SelectMany(country => CoreCategories.Select(category => new EprRate
+        return supportedCountries
+            .SelectMany(country => coreCategories.Select(category => new EprRate
             {
                 CountryCode = country,
                 Category = category,
                 RatePerKg = RateForCategory(category)
             }))
             .ToList();
+    }
+
+    private sealed class EprSettings
+    {
+        public List<string> SupportedCountries { get; set; } = [];
+        public List<string> Categories { get; set; } = [];
+        public List<EprRateDto> Rates { get; set; } = [];
+    }
+
+    private sealed class EprRateDto
+    {
+        public string CountryCode { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public decimal RatePerKg { get; set; }
     }
 }
 

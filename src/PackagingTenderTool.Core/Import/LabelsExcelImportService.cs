@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using ClosedXML.Excel;
 using PackagingTenderTool.Core.Models;
+using PackagingTenderTool.Core.Services;
 
 namespace PackagingTenderTool.Core.Import;
 
@@ -104,6 +105,7 @@ public sealed class LabelsExcelImportService
         var lineItems = new List<LabelLineItem>();
         var rawRows = new List<RawLabelTenderRow>();
         var issues = new List<LabelsImportIssue>();
+        var categoryMapper = new CategoryMapper();
         var scannedRows = 0;
         var skippedRows = 0;
 
@@ -129,7 +131,7 @@ public sealed class LabelsExcelImportService
                 continue;
             }
 
-            var lineItem = MapRow(row, columnMap);
+            var lineItem = MapRow(row, columnMap, categoryMapper);
             rawRows.Add(rawRow);
             AddRowIssues(row.RowNumber(), lineItem, issues);
             lineItems.Add(lineItem);
@@ -304,7 +306,10 @@ public sealed class LabelsExcelImportService
         };
     }
 
-    private static LabelLineItem MapRow(IXLRow row, IReadOnlyDictionary<string, int> columnMap)
+    private static LabelLineItem MapRow(
+        IXLRow row,
+        IReadOnlyDictionary<string, int> columnMap,
+        CategoryMapper categoryMapper)
     {
         var lineItem = new LabelLineItem
         {
@@ -386,7 +391,41 @@ public sealed class LabelsExcelImportService
             nameof(LabelLineItem.HasTraceability),
             lineItem.SourceManualReviewFlags);
 
+        AddEprSchemeIfPossible(lineItem, categoryMapper);
+
         return lineItem;
+    }
+
+    private static void AddEprSchemeIfPossible(LabelLineItem lineItem, CategoryMapper categoryMapper)
+    {
+        if (lineItem.EprSchemes.Count > 0)
+        {
+            return;
+        }
+
+        var countryCode = DeriveCountryCodeFromSite(lineItem.Site);
+        var category = categoryMapper.MapToSystemCategory(lineItem.Material);
+        if (string.IsNullOrWhiteSpace(countryCode) || string.IsNullOrWhiteSpace(category))
+        {
+            return;
+        }
+
+        lineItem.EprSchemes.Add(new EprSchemeInfo
+        {
+            CountryCode = countryCode,
+            Category = category
+        });
+    }
+
+    private static string? DeriveCountryCodeFromSite(string? site)
+    {
+        if (string.IsNullOrWhiteSpace(site) || site.Length < 2)
+        {
+            return null;
+        }
+
+        var prefix = site.Trim().Substring(0, 2);
+        return prefix.All(char.IsLetter) ? prefix.ToUpperInvariant() : null;
     }
 
     private static string? GetString(

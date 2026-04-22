@@ -190,6 +190,29 @@ public sealed class LabelsExcelImportServiceTests
     }
 
     [Fact]
+    public void ImportTenderMapsLdpeMaterialToFlexiblesAndCalculatesEprFee()
+    {
+        using var stream = CreateWorkbookStream(
+            ["Item no", "Supplier name", "Site", "Spend", "Price per 1,000", "Material", "Label weight (g)"],
+            [
+                ["LBL-009", "Acme Labels", "DK01", 100m, 10m, "LDPE", 1000m]
+            ]);
+
+        var tender = new LabelsExcelImportService().ImportTender(stream, "Imported tender");
+        var lineItem = tender.LabelLineItems.Single();
+
+        Assert.Single(lineItem.EprSchemes);
+        Assert.Equal("DK", lineItem.EprSchemes[0].CountryCode);
+        Assert.Equal("Flexibles", lineItem.EprSchemes[0].Category);
+
+        var result = new LabelsTenderEvaluationService().Evaluate(tender);
+        var lineEvaluation = result.LineEvaluations.Single();
+
+        // Flexibles placeholder rate = 1.20 per kg; 1000g = 1kg => fee 1.2
+        Assert.Equal(1.2m, lineEvaluation.EprFee);
+    }
+
+    [Fact]
     public void ImportedRegulatoryValuesContributeToEvaluationTotalAndClassification()
     {
         using var stream = CreateWorkbookStream(

@@ -18,17 +18,22 @@ public sealed class EvaluationServiceTests
         return lineItem;
     }
 
+    private static LabelLineItem StandardItem(string supplierName = "Acme Labels", decimal? spend = 100m, decimal? pricePerThousand = 10m)
+    {
+        return TestDataFactory.CreateStandardLabelItem(supplierName, spend, pricePerThousand);
+    }
+
     [Fact]
     public void LineEvaluationServiceCreatesEvaluationForLabelLineItem()
     {
-        var lineItem = new LabelLineItem
-        {
-            ItemNo = "LBL-001",
-            SupplierName = "Acme Labels",
-            Spend = 125m,
-            PricePerThousand = 10m
-        };
-        WithValidEpr(lineItem, labelWeightGrams: 100m);
+        var lineItem = TestDataFactory.CreateValidLabelLineItem(
+            supplierName: "Acme Labels",
+            spend: 125m,
+            pricePerThousand: 10m,
+            countryCode: "DK",
+            category: "Labels",
+            labelWeightGrams: 100m);
+        lineItem.ItemNo = "LBL-001";
 
         var evaluation = CreateLineService().Evaluate(lineItem);
 
@@ -45,17 +50,14 @@ public sealed class EvaluationServiceTests
     [Fact]
     public void LineEvaluationServiceFlagsMissingAndInvalidDataForManualReview()
     {
-        var lineItem = new LabelLineItem
-        {
-            SupplierName = " ",
-            Spend = -10m,
-            Quantity = -1m,
-            PricePerThousand = -2m,
-            Price = -3m,
-            TheoreticalSpend = -4m,
-            NumberOfColors = -1
-        };
-        WithValidEpr(lineItem, labelWeightGrams: 100m);
+        var lineItem = TestDataFactory.CreateStandardLabelItem(
+            supplierName: " ",
+            spend: -10m,
+            pricePerThousand: -2m);
+        lineItem.Quantity = -1m;
+        lineItem.Price = -3m;
+        lineItem.TheoreticalSpend = -4m;
+        lineItem.NumberOfColors = -1;
 
         var evaluation = CreateLineService().Evaluate(lineItem);
 
@@ -74,12 +76,13 @@ public sealed class EvaluationServiceTests
     [Fact]
     public void LineEvaluationServiceFlagsMissingSpendWithoutExcludingLine()
     {
-        var lineItem = new LabelLineItem
-        {
-            SupplierName = "Acme Labels",
-            Spend = null
-        };
-        WithValidEpr(lineItem, labelWeightGrams: 100m);
+        var lineItem = TestDataFactory.CreateValidLabelLineItem(
+            supplierName: "Acme Labels",
+            spend: null,
+            pricePerThousand: null,
+            countryCode: "DK",
+            category: "Labels",
+            labelWeightGrams: 100m);
 
         var evaluation = CreateLineService().Evaluate(lineItem);
 
@@ -98,9 +101,9 @@ public sealed class EvaluationServiceTests
         var lineService = CreateLineService();
         var lineEvaluations = new[]
         {
-            lineService.Evaluate(WithValidEpr(new LabelLineItem { SupplierName = "Acme Labels", Spend = 100m, PricePerThousand = 10m })),
-            lineService.Evaluate(WithValidEpr(new LabelLineItem { SupplierName = "Beta Labels", Spend = 50m, PricePerThousand = 12m })),
-            lineService.Evaluate(WithValidEpr(new LabelLineItem { SupplierName = "Acme Labels", Spend = 25m, PricePerThousand = 11m }))
+            lineService.Evaluate(TestDataFactory.CreateStandardLabelItem("Acme Labels", 100m, 10m)),
+            lineService.Evaluate(TestDataFactory.CreateStandardLabelItem("Beta Labels", 50m, 12m)),
+            lineService.Evaluate(TestDataFactory.CreateStandardLabelItem("Acme Labels", 25m, 11m))
         };
 
         var supplierEvaluations = new SupplierAggregationService().AggregateBySupplierName(lineEvaluations);
@@ -146,11 +149,7 @@ public sealed class EvaluationServiceTests
     public void SupplierAggregationServicePropagatesManualReviewFlagsFromLines()
     {
         var lineService = CreateLineService();
-        var flaggedLine = lineService.Evaluate(WithValidEpr(new LabelLineItem
-        {
-            SupplierName = null,
-            Spend = null
-        }, labelWeightGrams: 100m));
+        var flaggedLine = lineService.Evaluate(StandardItem(supplierName: null!, spend: null, pricePerThousand: null));
 
         var supplierEvaluation = new SupplierAggregationService()
             .AggregateBySupplierName([flaggedLine])

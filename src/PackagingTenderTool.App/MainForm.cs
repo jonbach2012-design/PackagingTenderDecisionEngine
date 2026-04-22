@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using ClosedXML.Excel;
 using PackagingTenderTool.Core.Dashboard;
 using PackagingTenderTool.Core.Import;
 using PackagingTenderTool.Core.Models;
@@ -60,6 +61,9 @@ internal sealed class MainForm : Form
     private readonly CheckBox normalizeInputValuesInput = new();
     private readonly CheckBox strictModeInput = new();
     private readonly CheckBox demoModeInput = new();
+
+    private readonly ComboBox supplierScenarioDropdown = new();
+    private TenderEvaluationResult? lastFullResult;
 
     private string? selectedSupplierName;
     private bool suppressSelectionEvents;
@@ -215,16 +219,92 @@ internal sealed class MainForm : Form
 
     private Control BuildDashboardView()
     {
-        var dashboard = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, ColumnCount = 1 };
+        var dashboard = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 5, ColumnCount = 1 };
+        dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 300));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 186));
-        dashboard.Controls.Add(BuildInsightPanel(), 0, 0);
-        dashboard.Controls.Add(BuildAnalyticsPanel(), 0, 1);
-        dashboard.Controls.Add(BuildSupplierCardsPanel(), 0, 2);
-        dashboard.Controls.Add(BuildComparisonPanel(), 0, 3);
+        dashboard.Controls.Add(BuildSummaryPanel(), 0, 0);
+        dashboard.Controls.Add(BuildInsightPanel(), 0, 1);
+        dashboard.Controls.Add(BuildAnalyticsPanel(), 0, 2);
+        dashboard.Controls.Add(BuildSupplierCardsPanel(), 0, 3);
+        dashboard.Controls.Add(BuildComparisonPanel(), 0, 4);
         return dashboard;
+    }
+
+    private Control BuildSummaryPanel()
+    {
+        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, Margin = new Padding(0, 0, 0, 12) };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+
+        panel.Controls.Add(SummaryCard("Total spend", "TotalSpend"), 0, 0);
+        panel.Controls.Add(SummaryCard("Estimated total EPR fee", "TotalEprFee"), 1, 0);
+        panel.Controls.Add(SummaryCard("Weighted regulatory score", "WeightedRegulatory"), 2, 0);
+        panel.Controls.Add(BuildScenarioCard(), 3, 0);
+
+        return panel;
+    }
+
+    private Control SummaryCard(string title, string kpiKey)
+    {
+        var card = Card();
+        card.Padding = new Padding(14, 10, 14, 10);
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, BackColor = card.BackColor };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        layout.Controls.Add(new Label
+        {
+            Text = title,
+            AutoSize = true,
+            ForeColor = AppTheme.MutedText,
+            Font = AppTheme.BodyFont(9.5F),
+            Margin = new Padding(0, 0, 0, 2)
+        }, 0, 0);
+
+        var valueLabel = new Label
+        {
+            Text = "-",
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            Font = AppTheme.TitleFont(14F),
+            ForeColor = AppTheme.MainText,
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        layout.Controls.Add(valueLabel, 0, 1);
+        card.Controls.Add(layout);
+        kpis[kpiKey] = valueLabel;
+        return card;
+    }
+
+    private Control BuildScenarioCard()
+    {
+        var card = Card();
+        card.Padding = new Padding(14, 10, 14, 10);
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, BackColor = card.BackColor };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        layout.Controls.Add(new Label
+        {
+            Text = "Scenario (supplier filter)",
+            AutoSize = true,
+            ForeColor = AppTheme.MutedText,
+            Font = AppTheme.BodyFont(9.5F),
+            Margin = new Padding(0, 0, 0, 6)
+        }, 0, 0);
+
+        supplierScenarioDropdown.Dock = DockStyle.Fill;
+        supplierScenarioDropdown.DropDownStyle = ComboBoxStyle.DropDownList;
+        supplierScenarioDropdown.SelectedIndexChanged += (_, _) => ApplySupplierScenarioSelection();
+        layout.Controls.Add(supplierScenarioDropdown, 0, 1);
+
+        card.Controls.Add(layout);
+        return card;
     }
 
     private Control BuildInsightPanel()
@@ -558,10 +638,14 @@ internal sealed class MainForm : Form
             AutoSize = true,
             Margin = new Padding(0)
         };
+        var exportButton = SecondaryButton("Export to Excel");
+        exportButton.Click += (_, _) => ExportToExcel();
+        exportButton.Margin = new Padding(0, 2, 10, 2);
         var loadTestDataButton = SecondaryButton("Load test data");
         loadTestDataButton.Click += (_, _) => LoadTestData();
         loadTestDataButton.Margin = new Padding(0, 2, 0, 2);
         importProgressBar.Width = 90;
+        actions.Controls.Add(exportButton);
         actions.Controls.Add(loadTestDataButton);
         actions.Controls.Add(importProgressBar);
 
@@ -736,6 +820,7 @@ internal sealed class MainForm : Form
 
     private void UpdateDashboardFromResult(TenderEvaluationResult result, string statusText)
     {
+        lastFullResult = result;
         result ??= new TenderEvaluationResult();
         result.Tender ??= new Tender();
         result.Tender.Settings ??= new TenderSettings();
@@ -793,9 +878,185 @@ internal sealed class MainForm : Form
         UpdateAnalyticsPresentation(new TenderDashboardViewModelFactory().Create(result));
         UpdateHeader(string.IsNullOrWhiteSpace(result.Tender.Name) ? settings.TenderName : result.Tender.Name, SafeCurrency(result.Tender.Settings.CurrencyCode));
         UpdateChartsAndComparison();
+        UpdateScenarioDropdown(result);
         statusLabel.Text = string.IsNullOrWhiteSpace(statusText) ? "Dashboard updated." : statusText;
         SelectRow(rows.FirstOrDefault(row => row.SupplierName == selectedSupplierName) ?? rows.FirstOrDefault());
         ShowResultView(dashboardViewPanel.Visible || !tableViewPanel.Visible);
+    }
+
+    private void UpdateScenarioDropdown(TenderEvaluationResult result)
+    {
+        var supplierNames = result.SupplierEvaluations
+            .Select(supplier => string.IsNullOrWhiteSpace(supplier.SupplierName) ? "(missing supplier)" : supplier.SupplierName)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var current = supplierScenarioDropdown.SelectedItem as string;
+
+        supplierScenarioDropdown.BeginUpdate();
+        try
+        {
+            supplierScenarioDropdown.Items.Clear();
+            supplierScenarioDropdown.Items.Add("All suppliers");
+            foreach (var name in supplierNames)
+            {
+                supplierScenarioDropdown.Items.Add(name);
+            }
+
+            supplierScenarioDropdown.SelectedItem = current is not null && supplierScenarioDropdown.Items.Contains(current)
+                ? current
+                : "All suppliers";
+        }
+        finally
+        {
+            supplierScenarioDropdown.EndUpdate();
+        }
+    }
+
+    private void ApplySupplierScenarioSelection()
+    {
+        if (lastFullResult is null)
+        {
+            return;
+        }
+
+        var selection = supplierScenarioDropdown.SelectedItem as string;
+        if (string.IsNullOrWhiteSpace(selection) || selection == "All suppliers")
+        {
+            UpdateDashboardFromResult(lastFullResult, "Scenario: all suppliers");
+            return;
+        }
+
+        var filtered = FilterResultBySupplier(lastFullResult, selection);
+        UpdateDashboardFromResult(filtered, $"Scenario: {selection}");
+    }
+
+    private void ExportToExcel()
+    {
+        if (lastFullResult is null || lastFullResult.LineEvaluations.Count == 0)
+        {
+            MessageBox.Show(this, "No evaluated results to export yet. Load test data or import an Excel file first.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var dialog = new SaveFileDialog
+        {
+            Filter = "Excel Workbook (*.xlsx)|*.xlsx",
+            FileName = $"TenderEvaluation_{DateTime.Now:yyyyMMdd_HHmm}.xlsx"
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.FileName))
+        {
+            return;
+        }
+
+        var currency = SafeCurrency(lastFullResult.Tender?.Settings?.CurrencyCode);
+
+        using var workbook = new XLWorkbook();
+        var linesSheet = workbook.Worksheets.Add("Line evaluations");
+        var suppliersSheet = workbook.Worksheets.Add("Suppliers");
+
+        var lineHeaders = new[]
+        {
+            "Item no", "Item name", "Supplier", "Site", "Spend", "EPR fee",
+            "Commercial", "Technical", "Regulatory", "Total", "Manual review flags"
+        };
+        for (var i = 0; i < lineHeaders.Length; i++)
+        {
+            linesSheet.Cell(1, i + 1).Value = lineHeaders[i];
+            linesSheet.Cell(1, i + 1).Style.Font.Bold = true;
+        }
+
+        var rowIndex = 2;
+        foreach (var evaluation in lastFullResult.LineEvaluations)
+        {
+            var item = evaluation.LineItem;
+            linesSheet.Cell(rowIndex, 1).Value = item.ItemNo ?? "";
+            linesSheet.Cell(rowIndex, 2).Value = item.ItemName ?? "";
+            linesSheet.Cell(rowIndex, 3).Value = item.SupplierName ?? "";
+            linesSheet.Cell(rowIndex, 4).Value = item.Site ?? "";
+            linesSheet.Cell(rowIndex, 5).Value = item.Spend ?? 0m;
+            linesSheet.Cell(rowIndex, 6).Value = evaluation.EprFee ?? 0m;
+            linesSheet.Cell(rowIndex, 7).Value = evaluation.ScoreBreakdown.Commercial ?? 0m;
+            linesSheet.Cell(rowIndex, 8).Value = evaluation.ScoreBreakdown.Technical ?? 0m;
+            linesSheet.Cell(rowIndex, 9).Value = evaluation.ScoreBreakdown.Regulatory ?? 0m;
+            linesSheet.Cell(rowIndex, 10).Value = evaluation.ScoreBreakdown.Total ?? 0m;
+            linesSheet.Cell(rowIndex, 11).Value = evaluation.ManualReviewFlags.Count;
+            rowIndex++;
+        }
+
+        linesSheet.Columns(5, 6).Style.NumberFormat.Format = "0.00";
+        linesSheet.Columns(7, 10).Style.NumberFormat.Format = "0.00";
+        linesSheet.Columns().AdjustToContents();
+
+        var supplierHeaders = new[]
+        {
+            "Supplier", "Total spend", "Estimated total EPR fee", "Commercial", "Technical", "Regulatory", "Total", "Classification", "Flags"
+        };
+        for (var i = 0; i < supplierHeaders.Length; i++)
+        {
+            suppliersSheet.Cell(1, i + 1).Value = supplierHeaders[i];
+            suppliersSheet.Cell(1, i + 1).Style.Font.Bold = true;
+        }
+
+        var eprFeeBySupplier = lastFullResult.LineEvaluations
+            .GroupBy(line => line.LineItem.SupplierName ?? string.Empty)
+            .ToDictionary(group => group.Key, group => group.Sum(line => line.EprFee ?? 0m), StringComparer.OrdinalIgnoreCase);
+
+        rowIndex = 2;
+        foreach (var supplier in lastFullResult.SupplierEvaluations)
+        {
+            var name = supplier.SupplierName ?? "";
+            suppliersSheet.Cell(rowIndex, 1).Value = string.IsNullOrWhiteSpace(name) ? "(missing supplier)" : name;
+            suppliersSheet.Cell(rowIndex, 2).Value = supplier.TotalSpend;
+            suppliersSheet.Cell(rowIndex, 3).Value = eprFeeBySupplier.TryGetValue(name, out var fee) ? fee : 0m;
+            suppliersSheet.Cell(rowIndex, 4).Value = supplier.ScoreBreakdown.Commercial ?? 0m;
+            suppliersSheet.Cell(rowIndex, 5).Value = supplier.ScoreBreakdown.Technical ?? 0m;
+            suppliersSheet.Cell(rowIndex, 6).Value = supplier.ScoreBreakdown.Regulatory ?? 0m;
+            suppliersSheet.Cell(rowIndex, 7).Value = supplier.ScoreBreakdown.Total ?? 0m;
+            suppliersSheet.Cell(rowIndex, 8).Value = supplier.Classification?.ToString() ?? "Unclassified";
+            suppliersSheet.Cell(rowIndex, 9).Value = supplier.ManualReviewFlags.Count;
+            rowIndex++;
+        }
+
+        suppliersSheet.Columns(2, 3).Style.NumberFormat.Format = "0.00";
+        suppliersSheet.Columns(4, 7).Style.NumberFormat.Format = "0.00";
+        suppliersSheet.Columns().AdjustToContents();
+
+        workbook.SaveAs(dialog.FileName);
+        statusLabel.Text = $"Exported results to {Path.GetFileName(dialog.FileName)} ({currency}).";
+    }
+
+    private static TenderEvaluationResult FilterResultBySupplier(TenderEvaluationResult source, string supplierName)
+    {
+        var normalized = supplierName == "(missing supplier)" ? string.Empty : supplierName;
+        var tender = source.Tender;
+
+        var lineEvaluations = source.LineEvaluations
+            .Where(line => string.Equals(line.LineItem.SupplierName ?? string.Empty, normalized, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var supplierEvaluations = source.SupplierEvaluations
+            .Where(supplier => string.Equals(supplier.SupplierName ?? string.Empty, normalized, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var cleaned = source.CleanedLineItems
+            .Where(row => string.Equals(row.Source.SupplierName ?? string.Empty, normalized, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var analytics = new PackagingTenderTool.Core.Analytics.TenderAnalyticsService().Analyze(cleaned);
+
+        return new TenderEvaluationResult
+        {
+            Tender = tender,
+            LineEvaluations = lineEvaluations,
+            SupplierEvaluations = supplierEvaluations,
+            ImportSummary = source.ImportSummary,
+            ImportIssues = source.ImportIssues,
+            CleanedLineItems = cleaned,
+            Analytics = analytics
+        };
     }
 
     private void BuildSupplierCards()
@@ -941,7 +1202,43 @@ internal sealed class MainForm : Form
         SetKpi("Conditional", rows.Count(row => row.Classification == SupplierClassification.Conditional).ToString(CultureInfo.InvariantCulture));
         SetKpi("ManualReview", rows.Count(row => row.Classification == SupplierClassification.ManualReview).ToString(CultureInfo.InvariantCulture));
         SetKpi("BestScore", rows.MaxBy(row => row.TotalScore)?.TotalScoreDisplay ?? "-");
+
+        var currency = SafeCurrency(result.Tender.Settings.CurrencyCode);
+        var totalSpend = result.LineEvaluations.Sum(line => line.LineItem.Spend ?? 0m);
+        var totalEprFee = result.LineEvaluations.Sum(line => line.EprFee ?? 0m);
+        var weightedRegulatory = WeightedAverageRegulatoryBySpend(result.LineEvaluations);
+
+        SetKpi("TotalSpend", $"{totalSpend:N0} {currency}");
+        SetKpi("TotalEprFee", $"{totalEprFee:N2} {currency}");
+        SetKpi("WeightedRegulatory", weightedRegulatory.HasValue ? weightedRegulatory.Value.ToString("N1", CultureInfo.CurrentCulture) : "-");
     }
+
+    private static decimal? WeightedAverageRegulatoryBySpend(IReadOnlyCollection<LineEvaluation> lines)
+    {
+        decimal weightedSum = 0m;
+        decimal spendSum = 0m;
+
+        foreach (var line in lines)
+        {
+            var spend = line.LineItem.Spend;
+            if (spend is null || spend <= 0m)
+            {
+                continue;
+            }
+
+            var score = line.ScoreBreakdown.Regulatory;
+            if (score is null)
+            {
+                continue;
+            }
+
+            weightedSum += score.Value * spend.Value;
+            spendSum += spend.Value;
+        }
+
+        return spendSum <= 0m ? null : decimal.Round(weightedSum / spendSum, 2);
+    }
+
 
     private void SetKpi(string key, string value)
     {

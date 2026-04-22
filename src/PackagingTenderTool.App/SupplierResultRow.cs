@@ -17,6 +17,8 @@ internal sealed class SupplierResultRow
 
     public decimal? EprFee { get; set; }
 
+    public decimal? RiskScore { get; set; }
+
     public decimal? CommercialScore { get; private init; }
 
     public decimal? TechnicalScore { get; private init; }
@@ -24,6 +26,16 @@ internal sealed class SupplierResultRow
     public decimal? RegulatoryScore { get; private init; }
 
     public decimal? TotalScore { get; private init; }
+
+    public decimal? CtrCommercialScore { get; set; }
+
+    public decimal? CtrTechnicalScore { get; set; }
+
+    public decimal? CtrRegulatoryScore { get; set; }
+
+    public decimal? DecisionScore { get; set; }
+
+    public decimal? ManualTechnicalScore { get; set; }
 
     public SupplierClassification? Classification { get; private init; }
 
@@ -37,6 +49,8 @@ internal sealed class SupplierResultRow
 
     public string EprFeeDisplay => EprFee.HasValue ? $"{EprFee.Value:N2} {CurrencyCode}" : "-";
 
+    public string RiskScoreDisplay => RiskScore.HasValue ? $"{RiskScore.Value:N1}" : "-";
+
     public string CommercialScoreDisplay => FormatScore(CommercialScore);
 
     public string TechnicalScoreDisplay => FormatScore(TechnicalScore);
@@ -44,6 +58,19 @@ internal sealed class SupplierResultRow
     public string RegulatoryScoreDisplay => FormatScore(RegulatoryScore);
 
     public string TotalScoreDisplay => FormatScore(TotalScore);
+
+    public string DecisionScoreDisplay => FormatScore(DecisionScore);
+
+    public string CtrCommercialScoreDisplay => FormatScore(CtrCommercialScore);
+
+    public string CtrTechnicalScoreDisplay => FormatScore(CtrTechnicalScore);
+
+    public string CtrRegulatoryScoreDisplay => FormatScore(CtrRegulatoryScore);
+
+    public string CtrProfileDisplay =>
+        $"C:{FormatShort(CtrCommercialScore)} T:{FormatShort(CtrTechnicalScore)} R:{FormatShort(CtrRegulatoryScore)}";
+
+    public string ManualTechnicalScoreDisplay => ManualTechnicalScore.HasValue ? FormatShort(ManualTechnicalScore) : "-";
 
     public static SupplierResultRow FromSupplier(SupplierEvaluation supplier, string currencyCode)
     {
@@ -78,5 +105,10 @@ internal sealed class SupplierResultRow
     private static string FormatScore(decimal? value)
     {
         return value.HasValue ? value.Value.ToString("N2", CultureInfo.CurrentCulture) : "-";
+    }
+
+    private static string FormatShort(decimal? value)
+    {
+        return value.HasValue ? decimal.Round(value.Value, 0).ToString("N0", CultureInfo.CurrentCulture) : "-";
     }
 }

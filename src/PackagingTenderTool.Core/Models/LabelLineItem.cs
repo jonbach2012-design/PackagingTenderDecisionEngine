@@ -22,6 +22,11 @@ public sealed class LabelLineItem
 
     public decimal? TheoreticalSpend { get; set; }
 
+    /// <summary>
+    /// Optional technical rating (0-100) from supplier/procurement input for CTR scoring.
+    /// </summary>
+    public decimal? TechnicalRating { get; set; }
+
     public string? LabelSize { get; set; }
 
     public string? WindingDirection { get; set; }

@@ -64,6 +64,16 @@ internal sealed class MainForm : Form
 
     private readonly ComboBox supplierScenarioDropdown = new();
     private TenderEvaluationResult? lastFullResult;
+    private readonly NumericUpDown volumeMultiplierInput = new();
+    private readonly ComboBox countryOverrideDropdown = new();
+    private readonly NumericUpDown eprInflationInput = new();
+    private readonly NumericUpDown materialPriceDeltaInput = new();
+    private readonly NumericUpDown ctrCommercialInput = new();
+    private readonly NumericUpDown ctrTechnicalInput = new();
+    private readonly NumericUpDown ctrRegulatoryInput = new();
+    private bool suppressCtrEvents;
+    private readonly Label ctrLeaderboardLabel = new();
+    private PackagingTenderTool.Core.Models.TenderProject currentProject = new();
 
     private string? selectedSupplierName;
     private bool suppressSelectionEvents;
@@ -241,9 +251,9 @@ internal sealed class MainForm : Form
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
 
-        panel.Controls.Add(SummaryCard("Total spend", "TotalSpend"), 0, 0);
-        panel.Controls.Add(SummaryCard("Estimated total EPR fee", "TotalEprFee"), 1, 0);
-        panel.Controls.Add(SummaryCard("Weighted regulatory score", "WeightedRegulatory"), 2, 0);
+        panel.Controls.Add(SummaryCard("Total net spend (TCO)", "TcoNetSpend"), 0, 0);
+        panel.Controls.Add(SummaryCard("Total EPR impact (TCO)", "TcoEprImpact"), 1, 0);
+        panel.Controls.Add(SummaryCard("Aggregated TCO", "TcoTotal"), 2, 0);
         panel.Controls.Add(BuildScenarioCard(), 3, 0);
 
         return panel;
@@ -285,26 +295,158 @@ internal sealed class MainForm : Form
     {
         var card = Card();
         card.Padding = new Padding(14, 10, 14, 10);
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, BackColor = card.BackColor };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 16, ColumnCount = 1, BackColor = card.BackColor };
+        for (var i = 0; i < 15; i++)
+        {
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        }
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         layout.Controls.Add(new Label
         {
-            Text = "Scenario (supplier filter)",
+            Text = "Scenario controls",
             AutoSize = true,
             ForeColor = AppTheme.MutedText,
             Font = AppTheme.BodyFont(9.5F),
             Margin = new Padding(0, 0, 0, 6)
         }, 0, 0);
 
-        supplierScenarioDropdown.Dock = DockStyle.Fill;
+        // Supplier filter
+        supplierScenarioDropdown.Dock = DockStyle.Top;
         supplierScenarioDropdown.DropDownStyle = ComboBoxStyle.DropDownList;
         supplierScenarioDropdown.SelectedIndexChanged += (_, _) => ApplySupplierScenarioSelection();
         layout.Controls.Add(supplierScenarioDropdown, 0, 1);
 
+        // Volume multiplier
+        volumeMultiplierInput.Minimum = 0;
+        volumeMultiplierInput.Maximum = 300;
+        volumeMultiplierInput.DecimalPlaces = 0;
+        volumeMultiplierInput.Value = 100;
+        volumeMultiplierInput.Increment = 10;
+        volumeMultiplierInput.Dock = DockStyle.Top;
+        volumeMultiplierInput.ValueChanged += (_, _) => RecalculateExecutiveSummary();
+        layout.Controls.Add(new Label { Text = "Volume %", AutoSize = true, ForeColor = AppTheme.MutedText, Margin = new Padding(0, 8, 0, 2) }, 0, 2);
+        layout.Controls.Add(volumeMultiplierInput, 0, 3);
+
+        // Country override (optional)
+        countryOverrideDropdown.Dock = DockStyle.Top;
+        countryOverrideDropdown.DropDownStyle = ComboBoxStyle.DropDownList;
+        countryOverrideDropdown.Items.AddRange(["(keep)", "DK", "SE", "NO", "FI", "IE"]);
+        countryOverrideDropdown.SelectedItem = "(keep)";
+        countryOverrideDropdown.SelectedIndexChanged += (_, _) => RecalculateExecutiveSummary();
+        layout.Controls.Add(new Label { Text = "Country override", AutoSize = true, ForeColor = AppTheme.MutedText, Margin = new Padding(0, 8, 0, 2) }, 0, 4);
+        layout.Controls.Add(countryOverrideDropdown, 0, 5);
+
+        // Market stress test controls
+        eprInflationInput.Minimum = -100;
+        eprInflationInput.Maximum = 500;
+        eprInflationInput.DecimalPlaces = 0;
+        eprInflationInput.Value = 0;
+        eprInflationInput.Increment = 5;
+        eprInflationInput.Dock = DockStyle.Top;
+        eprInflationInput.ValueChanged += (_, _) => RecalculateExecutiveSummary();
+
+        materialPriceDeltaInput.Minimum = -100;
+        materialPriceDeltaInput.Maximum = 500;
+        materialPriceDeltaInput.DecimalPlaces = 0;
+        materialPriceDeltaInput.Value = 0;
+        materialPriceDeltaInput.Increment = 5;
+        materialPriceDeltaInput.Dock = DockStyle.Top;
+        materialPriceDeltaInput.ValueChanged += (_, _) => RecalculateExecutiveSummary();
+
+        layout.Controls.Add(new Label { Text = "Market Stress Test: EPR inflation %", AutoSize = true, ForeColor = AppTheme.MutedText, Margin = new Padding(0, 10, 0, 2) }, 0, 6);
+        layout.Controls.Add(eprInflationInput, 0, 7);
+        layout.Controls.Add(new Label { Text = "Market Stress Test: Material price delta %", AutoSize = true, ForeColor = AppTheme.MutedText, Margin = new Padding(0, 8, 0, 2) }, 0, 8);
+        layout.Controls.Add(materialPriceDeltaInput, 0, 9);
+
+        // CTR sliders (sum auto-normalized to 100)
+        ConfigureCtrPercentInput(ctrCommercialInput, 60, () => RecalculateExecutiveSummary());
+        ConfigureCtrPercentInput(ctrTechnicalInput, 30, () => RecalculateExecutiveSummary());
+        ConfigureCtrPercentInput(ctrRegulatoryInput, 10, () => RecalculateExecutiveSummary());
+
+        layout.Controls.Add(new Label { Text = "CTR weights: Commercial %", AutoSize = true, ForeColor = AppTheme.MutedText, Margin = new Padding(0, 10, 0, 2) }, 0, 10);
+        layout.Controls.Add(ctrCommercialInput, 0, 11);
+        layout.Controls.Add(new Label { Text = "CTR weights: Technical %", AutoSize = true, ForeColor = AppTheme.MutedText, Margin = new Padding(0, 8, 0, 2) }, 0, 12);
+        layout.Controls.Add(ctrTechnicalInput, 0, 13);
+        layout.Controls.Add(new Label { Text = "CTR weights: Regulatory %", AutoSize = true, ForeColor = AppTheme.MutedText, Margin = new Padding(0, 8, 0, 2) }, 0, 14);
+        layout.Controls.Add(ctrRegulatoryInput, 0, 15);
+
         card.Controls.Add(layout);
         return card;
+    }
+
+    private void ConfigureCtrPercentInput(NumericUpDown input, decimal defaultValue, Action onChanged)
+    {
+        input.Minimum = 0;
+        input.Maximum = 100;
+        input.DecimalPlaces = 0;
+        input.Value = defaultValue;
+        input.Increment = 5;
+        input.Dock = DockStyle.Top;
+        input.ValueChanged += (_, _) =>
+        {
+            if (suppressCtrEvents) return;
+            NormalizeCtrWeights(input);
+            onChanged();
+        };
+    }
+
+    private void NormalizeCtrWeights(NumericUpDown changed)
+    {
+        try
+        {
+            suppressCtrEvents = true;
+
+            var c = ctrCommercialInput.Value;
+            var t = ctrTechnicalInput.Value;
+            var r = ctrRegulatoryInput.Value;
+
+            if (changed == ctrCommercialInput)
+            {
+                r = 100 - c - t;
+                if (r < 0)
+                {
+                    t = 100 - c;
+                    if (t < 0) t = 0;
+                    r = 0;
+                }
+            }
+            else if (changed == ctrTechnicalInput)
+            {
+                r = 100 - c - t;
+                if (r < 0)
+                {
+                    c = 100 - t;
+                    if (c < 0) c = 0;
+                    r = 0;
+                }
+            }
+            else
+            {
+                t = 100 - c - r;
+                if (t < 0)
+                {
+                    c = 100 - r;
+                    if (c < 0) c = 0;
+                    t = 0;
+                }
+            }
+
+            ctrCommercialInput.Value = ClampPercent(c);
+            ctrTechnicalInput.Value = ClampPercent(t);
+            ctrRegulatoryInput.Value = ClampPercent(r);
+        }
+        finally
+        {
+            suppressCtrEvents = false;
+        }
+    }
+
+    private static decimal ClampPercent(decimal value)
+    {
+        if (value < 0) return 0;
+        if (value > 100) return 100;
+        return value;
     }
 
     private Control BuildInsightPanel()
@@ -318,8 +460,19 @@ internal sealed class MainForm : Form
         panel.Controls.Add(InsightCard("Lead supplier", leadSupplierInsightLabel), 0, 0);
         panel.Controls.Add(InsightCard("Average total score", averageScoreInsightLabel), 1, 0);
         panel.Controls.Add(InsightCard("Review workload", reviewWorkloadInsightLabel), 2, 0);
-        panel.Controls.Add(InsightCard("Compared spend", comparedSpendInsightLabel), 3, 0);
+        panel.Controls.Add(InsightCard("CTR leaderboard", BuildCtrLeaderboardControl()), 3, 0);
         return panel;
+    }
+
+    private Control BuildCtrLeaderboardControl()
+    {
+        ctrLeaderboardLabel.Text = "-";
+        ctrLeaderboardLabel.AutoSize = false;
+        ctrLeaderboardLabel.Dock = DockStyle.Fill;
+        ctrLeaderboardLabel.ForeColor = AppTheme.MainText;
+        ctrLeaderboardLabel.Font = AppTheme.BodyFont(9.2F);
+        ctrLeaderboardLabel.Padding = new Padding(0);
+        return ctrLeaderboardLabel;
     }
 
     private Control BuildChartsPanel()
@@ -484,6 +637,10 @@ internal sealed class MainForm : Form
         AddColumn(nameof(SupplierResultRow.SupplierName), "Supplier", 150);
         AddColumn(nameof(SupplierResultRow.TotalSpendDisplay), "Spend", 95);
         AddColumn(nameof(SupplierResultRow.EprFeeDisplay), "EPR fee", 95);
+        AddColumn(nameof(SupplierResultRow.RiskScoreDisplay), "Risk", 70);
+        AddColumn(nameof(SupplierResultRow.DecisionScoreDisplay), "Decision", 78);
+        AddColumn(nameof(SupplierResultRow.CtrProfileDisplay), "CTR", 160);
+        AddColumn(nameof(SupplierResultRow.ManualTechnicalScore), "Technical (0-100)", 95);
         AddColumn(nameof(SupplierResultRow.CommercialScoreDisplay), "Commercial", 82);
         AddColumn(nameof(SupplierResultRow.TechnicalScoreDisplay), "Technical", 82);
         AddColumn(nameof(SupplierResultRow.RegulatoryScoreDisplay), "Regulatory", 82);
@@ -641,11 +798,19 @@ internal sealed class MainForm : Form
         var exportButton = SecondaryButton("Export to Excel");
         exportButton.Click += (_, _) => ExportToExcel();
         exportButton.Margin = new Padding(0, 2, 10, 2);
+        var saveTenderButton = SecondaryButton("Save tender");
+        saveTenderButton.Click += (_, _) => SaveTenderProject();
+        saveTenderButton.Margin = new Padding(0, 2, 10, 2);
+        var openTenderButton = SecondaryButton("Open tender");
+        openTenderButton.Click += (_, _) => OpenTenderProject();
+        openTenderButton.Margin = new Padding(0, 2, 10, 2);
         var loadTestDataButton = SecondaryButton("Load test data");
         loadTestDataButton.Click += (_, _) => LoadTestData();
         loadTestDataButton.Margin = new Padding(0, 2, 0, 2);
         importProgressBar.Width = 90;
         actions.Controls.Add(exportButton);
+        actions.Controls.Add(saveTenderButton);
+        actions.Controls.Add(openTenderButton);
         actions.Controls.Add(loadTestDataButton);
         actions.Controls.Add(importProgressBar);
 
@@ -748,6 +913,10 @@ internal sealed class MainForm : Form
             };
 
             var result = new LabelsTenderEvaluationService().Evaluate(tender);
+            if (string.IsNullOrWhiteSpace(currentProject.BaseCurrencyCode))
+            {
+                currentProject.BaseCurrencyCode = SafeCurrency(result.Tender.Settings.CurrencyCode);
+            }
             UpdateDashboardFromResult(result, "Test data loaded (EPR fee + regulatory adjustments).");
             SetImportFeedback(
                 "Test data",
@@ -879,9 +1048,218 @@ internal sealed class MainForm : Form
         UpdateHeader(string.IsNullOrWhiteSpace(result.Tender.Name) ? settings.TenderName : result.Tender.Name, SafeCurrency(result.Tender.Settings.CurrencyCode));
         UpdateChartsAndComparison();
         UpdateScenarioDropdown(result);
+        RecalculateExecutiveSummary();
         statusLabel.Text = string.IsNullOrWhiteSpace(statusText) ? "Dashboard updated." : statusText;
         SelectRow(rows.FirstOrDefault(row => row.SupplierName == selectedSupplierName) ?? rows.FirstOrDefault());
         ShowResultView(dashboardViewPanel.Visible || !tableViewPanel.Visible);
+    }
+
+    private void RecalculateExecutiveSummary()
+    {
+        if (lastFullResult is null)
+        {
+            SetKpi("TcoNetSpend", "-");
+            SetKpi("TcoEprImpact", "-");
+            SetKpi("TcoTotal", "-");
+            return;
+        }
+
+        var currency = SafeCurrency(string.IsNullOrWhiteSpace(currentProject.BaseCurrencyCode)
+            ? lastFullResult.Tender.Settings.CurrencyCode
+            : currentProject.BaseCurrencyCode);
+        var multiplier = volumeMultiplierInput.Value / 100m;
+        var countryOverride = countryOverrideDropdown.SelectedItem as string;
+        var keepCountry = string.IsNullOrWhiteSpace(countryOverride) || countryOverride == "(keep)";
+
+        var eprService = new EprFeeService();
+        var stress = new PackagingTenderTool.Core.Analytics.TenderStressParameters
+        {
+            EprInflationMultiplier = 1.0m + (eprInflationInput.Value / 100m),
+            MaterialPriceMultiplier = 1.0m + (materialPriceDeltaInput.Value / 100m)
+        };
+
+        var adjustedLines = lastFullResult.LineEvaluations
+            .Select(line =>
+            {
+                if (keepCountry)
+                {
+                    return line;
+                }
+
+                // Clone minimal info to recompute EPR fee with new country.
+                var scheme = line.LineItem.EprSchemes.FirstOrDefault();
+                var category = scheme?.Category;
+                if (string.IsNullOrWhiteSpace(category) || line.LineItem.LabelWeightGrams is not > 0m)
+                {
+                    return line;
+                }
+
+                var weightKg = line.LineItem.LabelWeightGrams!.Value / 1000m;
+                if (!eprService.TryCalculateFee(countryOverride!, category!, weightKg, out var fee, out _))
+                {
+                    return line;
+                }
+
+                return new LineEvaluation
+                {
+                    LineItemId = line.LineItemId,
+                    LineItem = line.LineItem,
+                    ScoreBreakdown = line.ScoreBreakdown,
+                    ManualReviewFlags = line.ManualReviewFlags,
+                    Explanations = line.Explanations,
+                    EprFee = fee
+                };
+            })
+            .ToList();
+
+        var analytics = new PackagingTenderTool.Core.Analytics.TenderAnalyticsService();
+        var tco = analytics.CalculateTco(adjustedLines, multiplier, stress);
+
+        SetKpi("TcoNetSpend", $"{tco.TotalNetSpend:N2} {currency}");
+        SetKpi("TcoEprImpact", $"{tco.TotalEprImpact:N2} {currency}");
+        SetKpi("TcoTotal", $"{tco.AggregatedTco:N2} {currency}");
+
+        // Update supplier risk scores in table/cards
+        var riskBySupplier = analytics.CalculateSupplierRiskScores(adjustedLines, multiplier, stress);
+        var ctrWeights = new PackagingTenderTool.Core.Analytics.CtrWeights
+        {
+            CommercialWeight = ctrCommercialInput.Value / 100m,
+            TechnicalWeight = ctrTechnicalInput.Value / 100m,
+            RegulatoryWeight = ctrRegulatoryInput.Value / 100m
+        };
+        var manualTech = currentRows
+            .Where(r => r.ManualTechnicalScore.HasValue)
+            .ToDictionary(r => r.SupplierName == "(missing supplier)" ? string.Empty : r.SupplierName,
+                r => r.ManualTechnicalScore!.Value,
+                StringComparer.OrdinalIgnoreCase);
+        var ctr = analytics.CalculateCtrDecisionScores(adjustedLines, ctrWeights, manualTech, multiplier, stress)
+            .ToDictionary(summary => string.IsNullOrWhiteSpace(summary.SupplierName) ? "(missing supplier)" : summary.SupplierName,
+                summary => summary,
+                StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in currentRows)
+        {
+            var key = row.SupplierName == "(missing supplier)" ? string.Empty : row.SupplierName;
+            row.RiskScore = riskBySupplier.TryGetValue(key, out var risk) ? risk : null;
+
+            if (ctr.TryGetValue(row.SupplierName, out var summary))
+            {
+                row.CtrCommercialScore = summary.CommercialScore;
+                row.CtrTechnicalScore = summary.TechnicalScore;
+                row.CtrRegulatoryScore = summary.RegulatoryScore;
+                row.DecisionScore = summary.DecisionScore;
+            }
+        }
+        UpdateCtrLeaderboard();
+        currentRows.ResetBindings();
+    }
+
+    private void UpdateCtrLeaderboard()
+    {
+        if (ctrLeaderboardLabel is null)
+        {
+            return;
+        }
+
+        var lines = currentRows
+            .Where(r => r.DecisionScore.HasValue)
+            .OrderByDescending(r => r.DecisionScore ?? -1)
+            .Take(6)
+            .Select(r => $"{r.SupplierName}: {r.CtrProfileDisplay} | D:{(r.DecisionScore.HasValue ? decimal.Round(r.DecisionScore.Value, 0).ToString("N0") : "-")}")
+            .ToList();
+
+        ctrLeaderboardLabel.Text = lines.Count == 0 ? "-" : string.Join(Environment.NewLine, lines);
+    }
+
+    private void SaveTenderProject()
+    {
+        try
+        {
+            var dialog = new SaveFileDialog
+            {
+                Filter = "Tender Project (*.tender.json)|*.tender.json|JSON (*.json)|*.json|All files (*.*)|*.*",
+                FileName = "tender-project.tender.json"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            currentProject.Result = lastFullResult ?? new TenderEvaluationResult();
+            currentProject.BaseCurrencyCode = SafeCurrency(string.IsNullOrWhiteSpace(currentProject.BaseCurrencyCode)
+                ? currentProject.Result.Tender.Settings.CurrencyCode
+                : currentProject.BaseCurrencyCode);
+            currentProject.CtrWeights = new PackagingTenderTool.Core.Analytics.CtrWeights
+            {
+                CommercialWeight = ctrCommercialInput.Value / 100m,
+                TechnicalWeight = ctrTechnicalInput.Value / 100m,
+                RegulatoryWeight = ctrRegulatoryInput.Value / 100m
+            };
+            currentProject.ManualTechnicalScores = currentRows
+                .Where(r => r.ManualTechnicalScore.HasValue)
+                .ToDictionary(r => r.SupplierName == "(missing supplier)" ? string.Empty : r.SupplierName,
+                    r => r.ManualTechnicalScore!.Value,
+                    StringComparer.OrdinalIgnoreCase);
+
+            new PackagingTenderTool.Core.Services.TenderStorageService().Save(currentProject, dialog.FileName);
+            statusLabel.Text = $"Saved: {Path.GetFileName(dialog.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            AppExceptionReporter.Handle(ex);
+            statusLabel.Text = "Save failed.";
+        }
+    }
+
+    private void OpenTenderProject()
+    {
+        try
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "Tender Project (*.tender.json)|*.tender.json|JSON (*.json)|*.json|All files (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            currentProject = new PackagingTenderTool.Core.Services.TenderStorageService().Load(dialog.FileName);
+
+            suppressCtrEvents = true;
+            try
+            {
+                ctrCommercialInput.Value = ClampPercent(currentProject.CtrWeights.CommercialWeight * 100m);
+                ctrTechnicalInput.Value = ClampPercent(currentProject.CtrWeights.TechnicalWeight * 100m);
+                ctrRegulatoryInput.Value = ClampPercent(currentProject.CtrWeights.RegulatoryWeight * 100m);
+                NormalizeCtrWeights(ctrCommercialInput);
+            }
+            finally
+            {
+                suppressCtrEvents = false;
+            }
+
+            UpdateDashboardFromResult(currentProject.Result ?? new TenderEvaluationResult(), $"Opened: {Path.GetFileName(dialog.FileName)}");
+
+            foreach (var row in currentRows)
+            {
+                var key = row.SupplierName == "(missing supplier)" ? string.Empty : row.SupplierName;
+                if (currentProject.ManualTechnicalScores.TryGetValue(key, out var score))
+                {
+                    row.ManualTechnicalScore = score;
+                }
+            }
+
+            currentRows.ResetBindings();
+            RecalculateExecutiveSummary();
+        }
+        catch (Exception ex)
+        {
+            AppExceptionReporter.Handle(ex);
+            statusLabel.Text = "Open failed.";
+        }
     }
 
     private void UpdateScenarioDropdown(TenderEvaluationResult result)
@@ -1538,14 +1916,24 @@ internal sealed class MainForm : Form
             return;
         }
 
-        if (e.RowIndex < 0 || resultsGrid.Columns[e.ColumnIndex].DataPropertyName != nameof(SupplierResultRow.Compare))
+        if (e.RowIndex < 0)
         {
             return;
         }
 
+        var columnName = resultsGrid.Columns[e.ColumnIndex].DataPropertyName;
         if (resultsGrid.Rows[e.RowIndex].DataBoundItem is SupplierResultRow row)
         {
-            SetCompare(row, row.Compare);
+            if (columnName == nameof(SupplierResultRow.Compare))
+            {
+                SetCompare(row, row.Compare);
+                return;
+            }
+
+            if (columnName == nameof(SupplierResultRow.ManualTechnicalScore))
+            {
+                RecalculateExecutiveSummary();
+            }
         }
     }
 
@@ -1595,6 +1983,15 @@ internal sealed class MainForm : Form
         if (row.ManualReviewFlagCount > 0)
         {
             e.CellStyle.BackColor = Color.FromArgb(255, 248, 204);
+        }
+
+        if (resultsGrid.Columns[e.ColumnIndex].DataPropertyName == nameof(SupplierResultRow.DecisionScoreDisplay)
+            && row.DecisionScore.HasValue
+            && currentRows.Count > 0
+            && row.SupplierName == currentRows.MaxBy(r => r.DecisionScore ?? -1)?.SupplierName)
+        {
+            e.CellStyle.BackColor = Color.FromArgb(230, 245, 232);
+            e.CellStyle.Font = AppTheme.TitleFont(9F);
         }
 
         if (resultsGrid.Columns[e.ColumnIndex].DataPropertyName == nameof(SupplierResultRow.Classification))

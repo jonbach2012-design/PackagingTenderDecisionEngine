@@ -34,6 +34,108 @@ public sealed class TenderAnalyticsServiceTests
             && candidate.PercentAboveMedian > 25m);
     }
 
+    [Fact]
+    public void CalculateTcoCalculatesNetSpendEprImpactTcoAndWeightedRegulatory()
+    {
+        var lines = new[]
+        {
+            new LineEvaluation
+            {
+                LineItem = new LabelLineItem
+                {
+                    SupplierName = "Acme",
+                    Quantity = 1000m,
+                    PricePerThousand = 100m
+                },
+                EprFee = 0.10m,
+                ScoreBreakdown = new ScoreBreakdown { Regulatory = 80m }
+            },
+            new LineEvaluation
+            {
+                LineItem = new LabelLineItem
+                {
+                    SupplierName = "Acme",
+                    Quantity = 500m,
+                    PricePerThousand = 600m
+                },
+                EprFee = 0.20m,
+                ScoreBreakdown = new ScoreBreakdown { Regulatory = 40m }
+            }
+        };
+        foreach (var line in lines)
+        {
+            line.LineItemId = line.LineItem.Id;
+        }
+
+        var summary = new TenderAnalyticsService().CalculateTco(lines);
+
+        // Net spend = price * volume:
+        // (100/1000)*1000 + (600/1000)*500 = 100 + 300 = 400
+        Assert.Equal(400.00m, summary.TotalNetSpend);
+
+        // EPR impact: (0.10*1000) + (0.20*500) = 100 + 100 = 200
+        Assert.Equal(200.00m, summary.TotalEprImpact);
+
+        Assert.Equal(600.00m, summary.AggregatedTco);
+
+        // Weighted regulatory by spend uses Spend field as weighting input; none provided => null.
+        Assert.Null(summary.WeightedRegulatoryScore);
+    }
+
+    [Fact]
+    public void CalculateTcoAppliesVolumeMultiplierToQuantityBasedValues()
+    {
+        var line = new LineEvaluation
+        {
+            LineItem = new LabelLineItem
+            {
+                Quantity = 100m,
+                PricePerThousand = 10m
+            },
+            EprFee = 0.10m,
+            ScoreBreakdown = new ScoreBreakdown { Regulatory = 100m }
+        };
+        line.LineItemId = line.LineItem.Id;
+
+        var summary = new TenderAnalyticsService().CalculateTco([line], volumeMultiplier: 1.10m);
+
+        // Derived net spend: (10/1000) * (100*1.1) = 1.1
+        Assert.Equal(1.10m, summary.TotalNetSpend);
+
+        // EPR impact: 0.10 * (100*1.1) = 11
+        Assert.Equal(11.00m, summary.TotalEprImpact);
+    }
+
+    [Fact]
+    public void CalculateTcoAppliesGlobalMultipliersToEprAndMaterialPrice()
+    {
+        var line = new LineEvaluation
+        {
+            LineItem = new LabelLineItem
+            {
+                Quantity = 100m,
+                PricePerThousand = 10m
+            },
+            EprFee = 0.10m
+        };
+        line.LineItemId = line.LineItem.Id;
+
+        var stress = new TenderStressParameters
+        {
+            EprInflationMultiplier = 1.10m,
+            MaterialPriceMultiplier = 0.95m
+        };
+
+        var summary = new TenderAnalyticsService().CalculateTco([line], volumeMultiplier: 1.00m, stress: stress);
+
+        // Net spend: (10/1000)*100 = 1.0, then *0.95 = 0.95
+        Assert.Equal(0.95m, summary.TotalNetSpend);
+
+        // EPR impact: 0.10*100 = 10, then *1.10 = 11
+        Assert.Equal(11.00m, summary.TotalEprImpact);
+        Assert.Equal(11.95m, summary.AggregatedTco);
+    }
+
     private static LabelLineItem CreateLine(
         string itemNo,
         string site,

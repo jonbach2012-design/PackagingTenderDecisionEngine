@@ -25,6 +25,7 @@ public sealed class LabelsExcelImportService
             [nameof(LabelLineItem.PricePerThousand)] = ["Price per 1,000", "Price per 1000", "Price/1000"],
             [nameof(LabelLineItem.Price)] = ["Price", "Price (DKK)", "Price DKK"],
             [nameof(LabelLineItem.TheoreticalSpend)] = ["Theoretical spend", "Theoretical spend (NOK)", "Theoretical spend NOK"],
+            [nameof(LabelLineItem.TechnicalRating)] = ["TechnicalRating", "Technical rating", "MaterialQuality", "Material quality"],
             [nameof(LabelLineItem.LabelSize)] = ["Label size"],
             [nameof(LabelLineItem.WindingDirection)] = ["Winding direction"],
             [nameof(LabelLineItem.Material)] = ["Material"],
@@ -353,6 +354,12 @@ public sealed class LabelsExcelImportService
             columnMap,
             nameof(LabelLineItem.TheoreticalSpend),
             nameof(LabelLineItem.TheoreticalSpend),
+            lineItem.SourceManualReviewFlags);
+        lineItem.TechnicalRating = GetDecimal(
+            row,
+            columnMap,
+            nameof(LabelLineItem.TechnicalRating),
+            nameof(LabelLineItem.TechnicalRating),
             lineItem.SourceManualReviewFlags);
         lineItem.NumberOfColors = GetInteger(
             row,

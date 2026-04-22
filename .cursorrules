@@ -1,0 +1,23 @@
+# PTT Project Constitution (PackagingTenderTool)
+
+## Role & Interaction
+- User is the Architect (5-1-3 Poweruser). Always be technical and direct.
+- AI must follow Spec-Driven Development (SDD). 
+- Always reference /docs/spec.md as the primary source of truth.
+
+## Architecture Guardrails
+- Pattern: Strict Strategy Pattern for all scoring.
+- Layers: 
+    1. Core (Domain & Logic) - No external dependencies.
+    2. Infrastructure (Data & Excel Import).
+    3. UI (Current: WinForms / Future: Blazor).
+- Logic Leakage: UI code must NEVER contain calculation logic.
+
+## Formatting & Standards
+- Language: C# / .NET 10.0.
+- Use README.md in root (all caps).
+- If math logic (spend-weighted) is modified, always explain the logic briefly.
+
+## Safety
+- Do not modify project files (.csproj, .sln) without asking.
+- If a task is ambiguous, STOP and ask for a 'Functional Envelope' (functional requirements).

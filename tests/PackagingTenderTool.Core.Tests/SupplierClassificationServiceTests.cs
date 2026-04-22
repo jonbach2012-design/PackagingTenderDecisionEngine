@@ -36,7 +36,7 @@ public sealed class SupplierClassificationServiceTests
     }
 
     [Fact]
-    public void ClassifyReturnsManualReviewWhenFlagsArePresent()
+    public void ClassifyReturnsConditionalWhenFlagsArePresent()
     {
         var supplierEvaluation = CreateSupplierEvaluation(totalScore: 95m);
         supplierEvaluation.ManualReviewFlags.Add(new ManualReviewFlag
@@ -47,17 +47,17 @@ public sealed class SupplierClassificationServiceTests
 
         var classification = new SupplierClassificationService().Classify(supplierEvaluation);
 
-        Assert.Equal(SupplierClassification.ManualReview, classification);
+        Assert.Equal(SupplierClassification.Conditional, classification);
     }
 
     [Fact]
-    public void ClassifyReturnsManualReviewWhenTotalScoreIsMissing()
+    public void ClassifyReturnsConditionalWhenTotalScoreIsMissing()
     {
         var supplierEvaluation = CreateSupplierEvaluation(totalScore: null);
 
         var classification = new SupplierClassificationService().Classify(supplierEvaluation);
 
-        Assert.Equal(SupplierClassification.ManualReview, classification);
+        Assert.Equal(SupplierClassification.Conditional, classification);
     }
 
     [Fact]

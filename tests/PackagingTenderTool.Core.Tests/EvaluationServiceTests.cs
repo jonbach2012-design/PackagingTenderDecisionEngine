@@ -121,7 +121,9 @@ public sealed class EvaluationServiceTests
         Assert.Equal(50m, supplierEvaluation.ScoreBreakdown.Commercial);
         Assert.Equal(70m, supplierEvaluation.ScoreBreakdown.Technical);
         Assert.Equal(90m, supplierEvaluation.ScoreBreakdown.Regulatory);
-        Assert.Equal(72m, supplierEvaluation.ScoreBreakdown.Total);
+        // Spec 13.2: supplier total is spend-weighted by line total (LineScore).
+        // (80*25 + 40*75) / (25+75) = 50
+        Assert.Equal(50m, supplierEvaluation.ScoreBreakdown.Total);
     }
 
     [Fact]

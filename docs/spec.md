@@ -256,78 +256,46 @@ The exact class design may evolve, but the responsibility boundaries should rema
 
 ---
 
-## 12. Evaluation Structure
+## 12. Evaluation Structure & Strategy
 
-## 12.1 Line-Level Evaluation
-Evaluation begins at line level.
+### 12.1 Strategy Pattern Enforcement
+Evaluation must be implemented using the **Strategy Pattern**. Each packaging profile (starting with Labels) must provide its own implementation of evaluation logic.
+- **Explainability:** Every score must be accompanied by a logic-container that explains the deduction or bonus.
+- **GUI Readiness:** Calculation weights must be read from `TenderSettings` to support real-time slider adjustments (1-100) in the frontend.
 
-Each line may contribute:
-- commercial interpretation
-- technical interpretation
-- regulatory interpretation
-- manual review signals
-- spend-weighted contribution to supplier-level result
-
-## 12.2 Supplier-Level Aggregation
-Supplier results are built by aggregating line results.
-
-Aggregation should:
-- group by Supplier name in version 1
-- weight by Spend where relevant
-- preserve visibility of issues and review flags
-
-## 12.3 Supplier Identity
-Version 1 groups by Supplier name.
-
-Later versions may support:
-- Supplier ID
-- M3 integration
-- stronger supplier master data identity handling
+### 12.2 Manual Review & Robustness
+The engine must be resilient to missing data to avoid "all-or-nothing" results:
+- If a line lacks critical data (e.g., price or material info), the engine must **not** return a 0 score for the entire dimension.
+- Instead, the specific line is flagged with `ManualReviewFlag = True`.
+- The supplier's aggregated result is marked with `Status: Conditional`, allowing users to drill down and identify missing data points.
 
 ---
 
-## 13. Scoring Direction
+## 13. Scoring Logic & Formula
 
-## 13.1 Baseline Weights
-Version 1 scoring direction remains:
+### 13.1 Dynamic Weighting (Slider-Ready)
+The total score is a weighted sum of three dimensions: Commercial, Technical, and Regulatory. Weights ($W$) are adjustable via the GUI but must always be normalized.
 
-- Commercial: 30%
-- Technical: 30%
-- Regulatory: 40%
+**Line Score Formula:**
+For each line ($i$), a $LineScore$ ($LS$) is calculated:
+$$LS_i = (Score_{Comm,i} \cdot W_{Comm}) + (Score_{Tech,i} \cdot W_{Tech}) + (Score_{Reg,i} \cdot W_{Reg})$$
 
-## 13.2 Commercial
-Commercial scoring should reflect:
-- price significance
-- theoretical spend relevance
-- relative competitiveness of supplier offers
+### 13.2 Spend-Weighted Supplier Aggregation
+To determine a supplier's total score ($S_{total}$), each line score is weighted by its relative $Spend$:
+$$S_{total} = \frac{\sum_{i=1}^{n} (LS_i \cdot Spend_i)}{\sum_{i=1}^{n} Spend_i}$$
 
-Lowest price should generally lead to the strongest commercial direction, but exact formula details may evolve.
+### 13.3 Regulatory Dimension (PPWR & EPR)
+Regulatory criteria are weighted highest by default ($W_{Reg} = 40\%$).
+- **PPWR (A-E):** Linear mapping from grade to points:
+  - **Grade A:** 100 pts | **Grade B:** 75 pts | **Grade C:** 50 pts | **Grade D:** 25 pts | **Grade E:** 0 pts.
+- **EPR (Scandi Focus):** Calculation must validate against country-specific rates for **DK, SE, NO, FI, IE**.
+- **Risk Flagging:** High-risk materials (e.g., multi-laminates in high-EPR fee countries) must trigger a "High Cost Risk" flag.
 
-## 13.3 Technical
-Technical scoring remains version 1 placeholder / evolving logic.
+### 13.4 Commercial Dimension
+- **Price Benchmarking:** The lowest price in the tender for a specific line item sets the benchmark (100 pts).
+- **Relative Scoring:** Other prices are scored relative to the benchmark:
+$$Score_{Comm,i} = \left( \frac{Price_{min,i}}{Price_{current,i}} \right) \cdot 100$$
 
-Expected future direction may include:
-- fit to technical requirements
-- print / material / format suitability
-- practical specification fit
-
-## 13.4 Regulatory
-Regulatory has the highest baseline weight because non-compliance may affect both supplier and buyer.
-
-Important direction includes:
-- lower weight
-- mono-material direction
-- ease of separation
-- recyclability or reusable direction
-- traceability
-
-Regulatory criteria should be able to both:
-- increase score
-- reduce score
-
-Version 1 does not require final knockout rules.
-
----
 
 ## 14. Classification Direction
 

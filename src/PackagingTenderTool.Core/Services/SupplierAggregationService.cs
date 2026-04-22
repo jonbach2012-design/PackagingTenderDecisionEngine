@@ -25,7 +25,7 @@ public sealed class SupplierAggregationService
             SupplierName = supplierGroup.Key,
             LineEvaluations = lineEvaluations,
             TotalSpend = totalSpend,
-            ScoreBreakdown = CreateWeightedScoreBreakdown(lineEvaluations, totalSpend)
+            ScoreBreakdown = CreateWeightedScoreBreakdown(lineEvaluations, totalSpend, out var aggregationFlags)
         };
 
         foreach (var manualReviewFlag in lineEvaluations.SelectMany(line => line.ManualReviewFlags))
@@ -33,13 +33,20 @@ public sealed class SupplierAggregationService
             supplierEvaluation.ManualReviewFlags.Add(manualReviewFlag);
         }
 
+        foreach (var flag in aggregationFlags)
+        {
+            supplierEvaluation.ManualReviewFlags.Add(flag);
+        }
+
         return supplierEvaluation;
     }
 
     private static ScoreBreakdown CreateWeightedScoreBreakdown(
         IReadOnlyCollection<LineEvaluation> lineEvaluations,
-        decimal totalSpend)
+        decimal totalSpend,
+        out List<ManualReviewFlag> aggregationFlags)
     {
+        aggregationFlags = [];
         if (totalSpend <= 0m)
         {
             return new ScoreBreakdown();
@@ -52,7 +59,18 @@ public sealed class SupplierAggregationService
             Regulatory = WeightedAverage(lineEvaluations, totalSpend, score => score.Regulatory)
         };
 
-        scoreBreakdown.Total = ScoreBreakdownCalculator.CalculateTotal(scoreBreakdown);
+        var weightedTotal = WeightedAverage(lineEvaluations, totalSpend, score => score.Total);
+        scoreBreakdown.Total = weightedTotal;
+
+        if (weightedTotal is null)
+        {
+            aggregationFlags.Add(new ManualReviewFlag
+            {
+                FieldName = nameof(ScoreBreakdown.Total),
+                Reason = "Supplier total score could not be calculated for one or more lines (missing spend or line score).",
+                Severity = ManualReviewSeverity.Warning
+            });
+        }
 
         return scoreBreakdown;
     }
@@ -63,6 +81,7 @@ public sealed class SupplierAggregationService
         Func<ScoreBreakdown, decimal?> scoreSelector)
     {
         decimal weightedScore = 0m;
+        decimal includedSpend = 0m;
 
         foreach (var lineEvaluation in lineEvaluations)
         {
@@ -75,13 +94,19 @@ public sealed class SupplierAggregationService
             var score = scoreSelector(lineEvaluation.ScoreBreakdown);
             if (score is null)
             {
-                return null;
+                continue;
             }
 
             weightedScore += score.Value * spend;
+            includedSpend += spend;
         }
 
-        return decimal.Round(weightedScore / totalSpend, 2);
+        if (includedSpend <= 0m)
+        {
+            return null;
+        }
+
+        return decimal.Round(weightedScore / includedSpend, 2);
     }
 
     private static decimal GetValidSpend(LineEvaluation lineEvaluation)

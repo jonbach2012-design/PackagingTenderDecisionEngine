@@ -28,14 +28,9 @@ public sealed class SupplierClassificationService
     {
         ArgumentNullException.ThrowIfNull(supplierEvaluation);
 
-        if (supplierEvaluation.RequiresManualReview)
+        if (supplierEvaluation.RequiresManualReview || supplierEvaluation.ScoreBreakdown.Total is null)
         {
-            return SupplierClassification.ManualReview;
-        }
-
-        if (supplierEvaluation.ScoreBreakdown.Total is null)
-        {
-            return SupplierClassification.ManualReview;
+            return SupplierClassification.Conditional;
         }
 
         if (supplierEvaluation.ScoreBreakdown.Total >= RecommendedThreshold)
@@ -74,14 +69,9 @@ public sealed class SupplierClassificationService
 
     private string CreateReason(SupplierEvaluation supplierEvaluation)
     {
-        if (supplierEvaluation.RequiresManualReview)
+        if (supplierEvaluation.RequiresManualReview || supplierEvaluation.ScoreBreakdown.Total is null)
         {
-            return "Manual review is required because one or more supplier or line evaluation flags are present.";
-        }
-
-        if (supplierEvaluation.ScoreBreakdown.Total is null)
-        {
-            return "Manual review is required because the total weighted score could not be calculated.";
+            return "Conditional because one or more flags are present and/or the total score could not be calculated for all lines.";
         }
 
         return supplierEvaluation.Classification switch

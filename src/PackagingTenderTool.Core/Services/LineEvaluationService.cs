@@ -62,9 +62,39 @@ public sealed class LineEvaluationService
             Regulatory = regulatoryScore
         };
 
-        scoreBreakdown.Total = ScoreBreakdownCalculator.CalculateTotal(scoreBreakdown);
+        scoreBreakdown.Total = CalculateWeightedTotal(scoreBreakdown, tenderSettings);
 
         return scoreBreakdown;
+    }
+
+    private static decimal? CalculateWeightedTotal(ScoreBreakdown scoreBreakdown, TenderSettings? tenderSettings)
+    {
+        if (scoreBreakdown.Commercial is null
+            || scoreBreakdown.Technical is null
+            || scoreBreakdown.Regulatory is null)
+        {
+            return null;
+        }
+
+        var commercialWeight = tenderSettings?.CommercialWeight ?? ScoreBreakdownCalculator.CommercialWeight;
+        var technicalWeight = tenderSettings?.TechnicalWeight ?? ScoreBreakdownCalculator.TechnicalWeight;
+        var regulatoryWeight = tenderSettings?.RegulatoryWeight ?? ScoreBreakdownCalculator.RegulatoryWeight;
+
+        var weightSum = commercialWeight + technicalWeight + regulatoryWeight;
+        if (weightSum <= 0m)
+        {
+            return null;
+        }
+
+        commercialWeight /= weightSum;
+        technicalWeight /= weightSum;
+        regulatoryWeight /= weightSum;
+
+        return decimal.Round(
+            scoreBreakdown.Commercial.Value * commercialWeight
+            + scoreBreakdown.Technical.Value * technicalWeight
+            + scoreBreakdown.Regulatory.Value * regulatoryWeight,
+            2);
     }
 
     private static decimal? CalculateCommercialScore(

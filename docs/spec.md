@@ -297,6 +297,24 @@ Regulatory criteria are weighted highest by default ($W_{Reg} = 40\%$).
 $$Score_{Comm,i} = \left( \frac{Price_{min,i}}{Price_{current,i}} \right) \cdot 100$$
 
 
+### 13.5 EPR Country Matrix & Fee Calculation
+The system must support country-specific EPR fees to calculate the Total Cost of Ownership (TCO) impact.
+
+**Supported Countries:** DK, SE, NO, FI, IE.
+**Core Categories:**
+- **Labels**
+- **Cardboard**
+- **Trays**
+- **Packaging Mixed**
+- **Flexibles**
+
+**Calculation Logic:**
+Fees are calculated based on material category and weight:
+$$EPR_{cost} = Weight_{kg} \times Rate_{category, country}$$
+
+The `EprFeeService` provides rate lookups. If a rate is missing for a specific country/category combination, the system must trigger a `ManualReviewFlag`.
+
+
 ## 14. Classification Direction
 
 Supplier classification should remain explainable and may include states such as:

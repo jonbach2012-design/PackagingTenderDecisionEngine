@@ -1,0 +1,436 @@
+/* Full-screen profile landing */
+.profile-landing {
+    min-height: calc(100dvh - 48px);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem 3rem;
+    box-sizing: border-box;
+    background: #ffffff;
+}
+
+.profile-landing-title {
+    color: #91a363 !important;
+    font-weight: 700 !important;
+    text-align: center;
+}
+
+.label-tender-profile-grid--landing {
+    width: 100%;
+    max-width: 1100px;
+}
+
+/* Light drawer + slate nav (overrides any residual theme) */
+.pt-drawer.mud-drawer {
+    background-color: #f5f5f5 !important;
+    border-right: 1px solid #e8e8e8 !important;
+}
+
+.pt-nav-menu .mud-nav-link {
+    color: #2d3436 !important;
+}
+
+.pt-nav-menu .mud-nav-link .mud-icon-root {
+    color: #3d4e5c !important;
+}
+
+.pt-nav-menu .mud-nav-link.mud-nav-link-active {
+    color: #91a363 !important;
+    font-weight: 600;
+}
+
+.pt-nav-menu .mud-nav-link.mud-nav-link-active .mud-icon-root {
+    color: #91a363 !important;
+}
+
+.label-tender-after-profile {
+    background: #ffffff;
+}
+
+.pt-app-bar-title {
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+}
+
+@media (max-width: 720px) {
+    .pt-app-bar-title {
+        font-size: 0.75rem !important;
+    }
+}
+
+/* Cockpit — hvid app bar, grøn accent-linje */
+.pt-app-bar.pt-app-bar-cockpit.mud-appbar,
+.pt-app-bar.pt-app-bar-cockpit {
+    background-color: #ffffff !important;
+    color: #2d3436 !important;
+    border-bottom: 2px solid #91a363;
+    box-shadow: none !important;
+}
+
+.pt-app-bar.pt-app-bar-cockpit .mud-typography,
+.pt-app-bar.pt-app-bar-cockpit .pt-app-bar-title {
+    color: #2d3436 !important;
+}
+
+.pt-drawer-cockpit.mud-drawer {
+    background-color: #f5f5f5 !important;
+}
+
+.cockpit-drawer-panel {
+    background: #f5f5f5;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100dvh - 48px);
+}
+
+.cockpit-drawer-weights {
+    flex: 0 0 auto;
+}
+
+.cockpit-drawer-advanced-wrap {
+    flex: 0 0 auto;
+    margin-top: auto;
+    padding-top: 1rem;
+}
+
+.cockpit-drawer-heading {
+    color: #2d3436 !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.7rem !important;
+}
+
+.cockpit-advanced-panel {
+    background: transparent !important;
+}
+
+.cockpit-advanced-value {
+    color: #5c6b76 !important;
+}
+
+.cockpit-main {
+    background: #ffffff;
+}
+
+.cockpit-root {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.cockpit-page-title {
+    color: #2d3436 !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em;
+}
+
+.cockpit-kpi-card {
+    border: 1px solid #e8e8e8 !important;
+    border-top: 3px solid #91a363;
+    background: #ffffff !important;
+    min-height: 8.5rem;
+}
+
+.cockpit-kpi-label {
+    color: #757575 !important;
+    letter-spacing: 0.06em;
+    font-weight: 600 !important;
+}
+
+.cockpit-kpi-value {
+    color: #2d3436 !important;
+    font-weight: 700 !important;
+}
+
+.cockpit-kpi-secondary,
+.cockpit-kpi-hint {
+    color: #5c6b76 !important;
+}
+
+.cockpit-grid-shell {
+    border: 1px solid #e8e8e8 !important;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.cockpit-supplier-grid.mud-table-dense .mud-table-cell,
+.cockpit-supplier-grid .mud-table-cell {
+    border-left: none !important;
+    border-right: none !important;
+}
+
+.cockpit-total-cell {
+    background-color: rgba(145, 163, 99, 0.14) !important;
+    font-weight: 700 !important;
+    color: #2d3436 !important;
+}
+
+.cockpit-drill {
+    background: #fafafa;
+    border-top: 1px solid #ececec;
+}
+
+.cockpit-drill-table tbody td:first-child {
+    color: #5c6b76;
+    width: 42%;
+}
+
+.label-tender-strategy-phase,
+.label-tender-results-phase {
+    background: #ffffff;
+}
+
+.label-tender-panel-title {
+    color: #2d3436 !important;
+    font-weight: 700 !important;
+}
+
+.label-tender-pillar-sum-muted {
+    color: #757575 !important;
+    font-weight: 500 !important;
+}
+
+.label-tender-locked-weights {
+    color: #5c6b76 !important;
+}
+
+.label-tender-strategy-panel--locked {
+    background: #fafafa !important;
+}
+
+.label-tender-approve-strategy-btn {
+    align-self: flex-start;
+    min-width: 12rem;
+    font-weight: 700 !important;
+    background-color: #91a363 !important;
+    color: #ffffff !important;
+}
+
+.label-tender-approve-strategy-btn:hover:not(:disabled) {
+    background-color: #7d8f55 !important;
+}
+
+.label-tender-approve-strategy-btn:disabled {
+    opacity: 0.45;
+}
+
+.label-tender-slider-accent.mud-slider-primary .mud-slider-filled {
+    background-color: #91a363 !important;
+}
+
+.label-tender-slider-accent.mud-slider-primary .mud-slider-value-label {
+    color: #91a363 !important;
+}
+
+.label-tender-results-card {
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.label-tender-results-loading {
+    height: 3px;
+}
+
+/* Profile gate — clean white, Labels accent #91a363 */
+.label-tender-gate {
+    background: #ffffff;
+    min-height: calc(100dvh - 48px);
+}
+
+/* Five profile cards: MudGrid root + direct item wrappers */
+.label-tender-profile-grid {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1.5rem;
+}
+
+.label-tender-profile-grid > * {
+    width: 100% !important;
+    max-width: none !important;
+    flex-basis: auto !important;
+}
+
+@media (max-width: 1280px) {
+    .label-tender-profile-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .label-tender-profile-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .label-tender-profile-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.label-tender-card--labels {
+    border: 2px solid #91a363 !important;
+    box-shadow: 0 4px 20px rgba(145, 163, 99, 0.38);
+}
+
+.label-tender-card--faded {
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+/* Label tender — Scandi clean (accent #91A363, slate text, calm gray field) */
+:root {
+    --lt-accent: #91a363;
+    --lt-page-bg: #f5f5f5;
+    --lt-border: #e0e0e0;
+    --lt-slate: #2d3436;
+    --lt-slate-muted: rgba(45, 52, 54, 0.78);
+}
+
+html, body {
+    height: 100%;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    color: var(--lt-slate);
+    background-color: #ffffff;
+}
+
+/* App bar: flat (cockpit overrides in .pt-app-bar-cockpit) */
+.pt-app-bar:not(.pt-app-bar-cockpit) {
+    box-shadow: none !important;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.label-tender-page {
+    max-width: 1280px;
+    margin: -16px -16px 0;
+    padding: 28px 22px 56px;
+    min-height: calc(100dvh - 96px);
+    background-color: var(--lt-page-bg);
+    box-sizing: border-box;
+}
+
+.label-tender-title,
+.label-tender-section-title {
+    font-weight: 700 !important;
+    color: var(--lt-slate) !important;
+}
+
+.label-tender-lede {
+    color: var(--lt-slate);
+    opacity: 0.82;
+    max-width: 44rem;
+}
+
+.label-tender-accent-text {
+    color: var(--lt-accent) !important;
+}
+
+.label-tender-link-btn {
+    color: var(--lt-accent) !important;
+    font-weight: 600;
+}
+
+/* Step 1 — profile tiles */
+.label-tender-profile-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.label-tender-profile-tile {
+    flex: 1 1 160px;
+    min-width: 140px;
+    min-height: 6.5rem;
+    padding: 1.25rem 1.1rem;
+    border-radius: 10px;
+    border: 1px solid var(--lt-border);
+    background: #ffffff;
+    box-sizing: border-box;
+}
+
+.label-tender-profile-tile--labels {
+    border-color: var(--lt-accent) !important;
+    border-width: 2px;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease;
+}
+
+.label-tender-profile-tile--labels:hover {
+    box-shadow: 0 6px 22px rgba(145, 163, 99, 0.18);
+}
+
+.label-tender-profile-tile--inactive {
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+.label-tender-tile-title {
+    font-weight: 700 !important;
+    color: var(--lt-slate) !important;
+}
+
+.label-tender-reveal {
+    animation: label-tender-reveal 0.42s ease-out both;
+}
+
+@keyframes label-tender-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Step 2 — strategy panel */
+.label-tender-strategy-panel {
+    border: 1px solid var(--lt-border);
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.label-tender-slider-label {
+    font-weight: 600;
+    color: var(--lt-slate-muted) !important;
+}
+
+.label-tender-pillar-sum {
+    color: var(--lt-slate-muted);
+    font-weight: 500;
+}
+
+.label-tender-pillar-sum--ok {
+    color: #91a363 !important;
+    font-weight: 700 !important;
+}
+
+/* Step 3 — grid */
+.label-tender-grid-card {
+    border: 1px solid var(--lt-border);
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.label-tender-grid.mud-data-grid .mud-table-cell {
+    border-left: none !important;
+    border-right: none !important;
+}
+
+.label-tender-grid.mud-data-grid .mud-table-head .mud-table-cell {
+    border-left: none !important;
+    border-right: none !important;
+}
+
+.label-tender-total-score {
+    color: var(--lt-accent) !important;
+    font-weight: 700 !important;
+}
+
+.label-tender-drilldown {
+    background: #fafafa;
+    border-top: 1px solid var(--lt-border);
+}

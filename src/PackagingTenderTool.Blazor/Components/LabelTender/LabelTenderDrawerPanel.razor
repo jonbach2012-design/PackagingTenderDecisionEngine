@@ -1,0 +1,118 @@
+@implements IDisposable
+
+@using PackagingTenderTool.Core.Models
+
+@inject PackagingProfileSession Session
+
+@if (Session.SelectedProfile == PackagingProfileSession.ProfileLabels)
+{
+    <div class="cockpit-drawer-panel pa-4">
+        <div class="cockpit-drawer-weights">
+            <MudText Typo="Typo.subtitle2" Class="cockpit-drawer-heading mb-4">
+                Strategisk vægtning
+            </MudText>
+
+            <MudStack Spacing="3">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Class="label-tender-slider-label">Commercial</MudText>
+                    <MudSlider T="int"
+                               Min="0"
+                               Max="100"
+                               Step="1"
+                               Value="Session.Commercial"
+                               ValueChanged="OnCommercialChanged"
+                               Color="Color.Primary"
+                               Class="label-tender-slider-accent" />
+                </MudStack>
+
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Class="label-tender-slider-label">Technical</MudText>
+                    <MudSlider T="int"
+                               Min="0"
+                               Max="100"
+                               Step="1"
+                               Value="Session.Technical"
+                               ValueChanged="OnTechnicalChanged"
+                               Color="Color.Primary"
+                               Class="label-tender-slider-accent" />
+                </MudStack>
+
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Class="label-tender-slider-label">Regulatory</MudText>
+                    <MudSlider T="int"
+                               Min="0"
+                               Max="100"
+                               Step="1"
+                               Value="Session.Regulatory"
+                               ValueChanged="OnRegulatoryChanged"
+                               Color="Color.Primary"
+                               Class="label-tender-slider-accent" />
+                </MudStack>
+
+                <MudText Typo="Typo.body2" Class="label-tender-pillar-sum--ok">
+                    Samlet vægtning: @Session.PillarSum / 100
+                </MudText>
+            </MudStack>
+        </div>
+
+        <div class="cockpit-drawer-advanced-wrap">
+            <MudExpansionPanel Text="Advanced settings" Class="cockpit-advanced-panel">
+                <MudStack Spacing="3" Class="pt-2">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption" Class="label-tender-slider-label">Max CO₂ impact</MudText>
+                        <MudSlider T="decimal"
+                                   Min="@LabelTenderAdvancedConstraints.Co2SliderMin"
+                                   Max="@LabelTenderAdvancedConstraints.Co2SliderMax"
+                                   Step="@(0.05m)"
+                                   Value="Session.MaxCo2Impact"
+                                   ValueChanged="OnMaxCo2Changed"
+                                   Color="Color.Primary"
+                                   Class="label-tender-slider-accent" />
+                        <MudText Typo="Typo.caption" Class="cockpit-advanced-value">@Session.MaxCo2Impact.ToString("0.00")</MudText>
+                    </MudStack>
+
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption" Class="label-tender-slider-label">Max lead time (dage)</MudText>
+                        <MudSlider T="decimal"
+                                   Min="@LabelTenderAdvancedConstraints.LeadSliderMin"
+                                   Max="@LabelTenderAdvancedConstraints.LeadSliderMax"
+                                   Step="1m"
+                                   Value="Session.MaxLeadTimeDays"
+                                   ValueChanged="OnMaxLeadChanged"
+                                   Color="Color.Primary"
+                                   Class="label-tender-slider-accent" />
+                        <MudText Typo="Typo.caption" Class="cockpit-advanced-value">@Session.MaxLeadTimeDays.ToString("0")</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudExpansionPanel>
+        </div>
+    </div>
+}
+
+@code
+{
+    protected override void OnInitialized()
+    {
+        Session.Changed += OnSessionChanged;
+    }
+
+    public void Dispose()
+    {
+        Session.Changed -= OnSessionChanged;
+    }
+
+    private void OnSessionChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnCommercialChanged(int v) => Session.SetCommercial(v);
+
+    private void OnTechnicalChanged(int v) => Session.SetTechnical(v);
+
+    private void OnRegulatoryChanged(int v) => Session.SetRegulatory(v);
+
+    private void OnMaxCo2Changed(decimal v) => Session.SetMaxCo2Impact(v);
+
+    private void OnMaxLeadChanged(decimal v) => Session.SetMaxLeadTimeDays(v);
+}

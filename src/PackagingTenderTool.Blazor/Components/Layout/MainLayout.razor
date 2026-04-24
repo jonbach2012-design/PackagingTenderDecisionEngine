@@ -1,0 +1,56 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+
+@using PackagingTenderTool.Blazor.Components.LabelTender
+
+@inject PackagingProfileSession Profile
+
+<MudThemeProvider Theme="@AppTheme.Scandi" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true" Class="pt-app-bar pt-app-bar-cockpit">
+        <MudText Typo="Typo.h6" Class="pt-app-bar-title" Style="font-weight: 700;">
+            Packaging Tender Decision Support System
+        </MudText>
+    </MudAppBar>
+
+    @if (Profile.SelectedProfile is not null)
+    {
+        <MudDrawer Variant="DrawerVariant.Persistent"
+                   Open="true"
+                   Elevation="0"
+                   Width="300px"
+                   ClipMode="DrawerClipMode.Always"
+                   Class="pt-drawer pt-drawer-cockpit">
+            <LabelTenderDrawerPanel />
+            <MudDivider Class="mx-2 my-1" />
+            <div class="pt-drawer-nav pa-2">
+                <NavMenu />
+            </div>
+        </MudDrawer>
+    }
+
+    <MudMainContent Class="@(Profile.SelectedProfile is not null ? "pa-4 cockpit-main" : "pa-0")">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code
+{
+    protected override void OnInitialized()
+    {
+        Profile.Changed += OnProfileChanged;
+    }
+
+    private void OnProfileChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Profile.Changed -= OnProfileChanged;
+    }
+}

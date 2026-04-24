@@ -464,7 +464,7 @@ internal sealed class MainForm : Form
         return panel;
     }
 
-    private Control BuildCtrLeaderboardControl()
+    private Label BuildCtrLeaderboardControl()
     {
         ctrLeaderboardLabel.Text = "-";
         ctrLeaderboardLabel.AutoSize = false;

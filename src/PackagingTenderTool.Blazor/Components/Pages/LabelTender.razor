@@ -1,0 +1,250 @@
+@page "/labeltender"
+@implements IDisposable
+
+@using System.Globalization
+@using PackagingTenderTool.Core.Models
+@using PackagingTenderTool.Core.Services.LabelTenderScoring
+
+@inject PackagingProfileSession Session
+
+@if (Session.SelectedProfile is null)
+{
+    <div class="profile-landing">
+        <MudText Typo="Typo.h3" Class="profile-landing-title mb-10">
+            Vælg Packaging Profil
+        </MudText>
+
+        <MudGrid Class="label-tender-profile-grid label-tender-profile-grid--landing" Spacing="4">
+            @foreach (var name in _profiles)
+            {
+                var isLabels = name == PackagingProfileSession.ProfileLabels;
+                <MudItem xs="12">
+                    @if (isLabels)
+                    {
+                        <MudCard Elevation="0"
+                                 Outlined="true"
+                                 Class="label-tender-card label-tender-card--labels pa-6"
+                                 @onclick="SelectLabels">
+                            <MudCardContent Class="pa-0 d-flex align-center justify-center" Style="min-height: 5rem;">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight: 700;">@name</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    }
+                    else
+                    {
+                        <MudCard Elevation="0" Outlined="true" Class="label-tender-card label-tender-card--faded pa-6">
+                            <MudCardContent Class="pa-0 d-flex align-center justify-center" Style="min-height: 5rem;">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight: 700;">@name</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    }
+                </MudItem>
+            }
+        </MudGrid>
+    </div>
+}
+else
+{
+    <div class="cockpit-root">
+        <MudStack Spacing="8">
+            <MudText Typo="Typo.h4" Class="cockpit-page-title">Tender Overview</MudText>
+
+            <MudGrid Spacing="4" Class="cockpit-kpi-row">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-kpi-card pa-5">
+                        <MudText Typo="Typo.overline" Class="cockpit-kpi-label">Total tender value</MudText>
+                        <MudText Typo="Typo.h5" Class="cockpit-kpi-value mt-2">@TenderValueFormatted</MudText>
+                        <MudText Typo="Typo.caption" Class="cockpit-kpi-hint mt-2">
+                            Bedste leverandør × @TenderVolumeUnits.ToString("N0", Da) enheder
+                        </MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-kpi-card pa-5">
+                        <MudText Typo="Typo.overline" Class="cockpit-kpi-label">Geografisk scope</MudText>
+                        <MudText Typo="Typo.h6" Class="cockpit-kpi-value mt-2">@GeoLine1</MudText>
+                        <MudText Typo="Typo.body2" Class="cockpit-kpi-secondary mt-2">@GeoLine2</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-kpi-card pa-5">
+                        <MudText Typo="Typo.overline" Class="cockpit-kpi-label">Supplier readiness</MudText>
+                        <MudText Typo="Typo.h5" Class="cockpit-kpi-value mt-2">@ReadinessPassed af @_suppliers.Count</MudText>
+                        <MudText Typo="Typo.caption" Class="cockpit-kpi-hint mt-2">Opfylder max CO₂ og max lead time</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Outlined="true" Class="cockpit-kpi-card pa-5">
+                        <MudText Typo="Typo.overline" Class="cockpit-kpi-label">Pris-spænd</MudText>
+                        <MudText Typo="Typo.h6" Class="cockpit-kpi-value mt-2">@PriceBandText</MudText>
+                        <MudText Typo="Typo.caption" Class="cockpit-kpi-hint mt-2">Enhedspris (alle bud)</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Elevation="0" Outlined="true" Class="cockpit-grid-shell pa-0">
+                <MudDataGrid T="SupplierPillarAnalysisRow"
+                             Items="@_pillarRows"
+                             Dense="true"
+                             Hover="true"
+                             Class="cockpit-supplier-grid">
+                    <Columns>
+                        <HierarchyColumn T="SupplierPillarAnalysisRow" />
+                        <TemplateColumn Title="Leverandør">
+                            <CellTemplate>
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.Item.Supplier.SupplierName</MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Commercial">
+                            <CellTemplate>
+                                <MudText Typo="Typo.body2" Class="text-end d-block">@FormatScore(context.Item.Supplier.CommercialScore)</MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Technical">
+                            <CellTemplate>
+                                <MudText Typo="Typo.body2" Class="text-end d-block">@FormatScore(context.Item.Supplier.TechnicalScore)</MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Regulatory">
+                            <CellTemplate>
+                                <MudText Typo="Typo.body2" Class="text-end d-block">@FormatScore(context.Item.Supplier.RegulatoryScore)</MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Vægtet score">
+                            <CellTemplate>
+                                <MudText Typo="Typo.body2" Class="text-end d-block cockpit-total-cell">@FormatScore(context.Item.TotalScore)</MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                    <ChildRowContent>
+                        <div class="cockpit-drill pa-4">
+                            <MudSimpleTable Dense="true" Class="cockpit-drill-table">
+                                <tbody>
+                                    <tr>
+                                        <td>Pris (pr. enhed)</td>
+                                        <td class="text-end">@context.Item.Supplier.Price.ToString("N2", Da)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Leveringstid</td>
+                                        <td class="text-end">@context.Item.Supplier.DeliveryTimeDays.ToString("0") dage</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CO₂-impact</td>
+                                        <td class="text-end">@context.Item.Supplier.Co2Impact.ToString("N2", Da)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Land</td>
+                                        <td class="text-end">@context.Item.Supplier.Country</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Sites</td>
+                                        <td class="text-end">@context.Item.Supplier.SiteCount</td>
+                                    </tr>
+                                </tbody>
+                            </MudSimpleTable>
+                        </div>
+                    </ChildRowContent>
+                </MudDataGrid>
+            </MudPaper>
+        </MudStack>
+    </div>
+}
+
+@code
+{
+    private static readonly CultureInfo Da = CultureInfo.GetCultureInfo("da-DK");
+
+    private const decimal TenderVolumeUnits = 10_000_000m;
+
+    private static readonly string[] _profiles =
+        [PackagingProfileSession.ProfileLabels, "Trays", "Flexibles", "Cardboard", "Mixed"];
+
+    private List<SupplierModel> _suppliers = [];
+
+    private List<SupplierPillarAnalysisRow> _pillarRows = [];
+
+    protected override void OnInitialized()
+    {
+        Session.Changed += OnSessionChanged;
+        RefreshData();
+    }
+
+    public void Dispose()
+    {
+        Session.Changed -= OnSessionChanged;
+    }
+
+    private void OnSessionChanged()
+    {
+        RefreshData();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshData()
+    {
+        if (Session.SelectedProfile != PackagingProfileSession.ProfileLabels)
+        {
+            _suppliers = [];
+            _pillarRows = [];
+            return;
+        }
+
+        _suppliers = LabelTenderDemoSupplierData.Create().ToList();
+        _pillarRows = SupplierPillarAnalysis.BuildOrdered(
+                _suppliers,
+                Session.Commercial,
+                Session.Technical,
+                Session.Regulatory)
+            .ToList();
+    }
+
+    private SupplierPillarAnalysisRow? BestRow => _pillarRows.Count > 0 ? _pillarRows[0] : null;
+
+    private string TenderValueFormatted =>
+        BestRow is null
+            ? "–"
+            : (BestRow.Supplier.Price * TenderVolumeUnits).ToString("N0", Da) + " kr.";
+
+    private string GeoLine1 =>
+        _suppliers.Count == 0 ? "–" : $"Antal sites: {_suppliers.Sum(s => s.SiteCount)}";
+
+    private string GeoLine2
+    {
+        get
+        {
+            if (_suppliers.Count == 0)
+            {
+                return "–";
+            }
+
+            var countries = _suppliers
+                .Select(s => s.Country)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+            return $"Lande: {countries}";
+        }
+    }
+
+    private int ReadinessPassed =>
+        _suppliers.Count(s => s.Co2Impact <= Session.MaxCo2Impact && s.DeliveryTimeDays <= Session.MaxLeadTimeDays);
+
+    private string PriceBandText
+    {
+        get
+        {
+            if (_suppliers.Count == 0)
+            {
+                return "–";
+            }
+
+            var min = _suppliers.Min(s => s.Price);
+            var max = _suppliers.Max(s => s.Price);
+            return $"{min.ToString("N2", Da)} – {max.ToString("N2", Da)} kr.";
+        }
+    }
+
+    private void SelectLabels() => Session.SelectLabels();
+
+    private static string FormatScore(decimal value) => value.ToString("0.0", Da);
+}
